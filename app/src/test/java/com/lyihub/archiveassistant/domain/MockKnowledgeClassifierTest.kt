@@ -1,0 +1,80 @@
+package com.lyihub.archiveassistant.domain
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class MockKnowledgeClassifierTest {
+    private val classifier = MockKnowledgeClassifier()
+
+    @Test
+    fun classify_urlArticle_returnsWebArticleResult() {
+        val result = classifier.classify("https://example.com/article about transformer architecture")
+
+        val payload = result.assertClassified()
+        assertEquals(ContentType.WEB_ARTICLE, payload.contentType)
+        assertEquals("网页文章", payload.tag)
+        assertEquals(SampleKnowledgeData.DefaultTopicId, payload.topicId)
+    }
+
+    @Test
+    fun classify_imageScreenshot_returnsImageResult() {
+        val result = classifier.classify("UX screenshot image of a settings panel")
+
+        val payload = result.assertClassified()
+        assertEquals(ContentType.IMAGE_SCREENSHOT, payload.contentType)
+        assertEquals("图像截屏", payload.tag)
+        assertEquals("topic-ui-inspiration", payload.topicId)
+    }
+
+    @Test
+    fun classify_pdfDocument_returnsDocumentResult() {
+        val result = classifier.classify("PDF document report about attention mechanism")
+
+        val payload = result.assertClassified()
+        assertEquals(ContentType.DOCUMENT_PDF, payload.contentType)
+        assertEquals("文档/PDF", payload.tag)
+        assertEquals(SampleKnowledgeData.DefaultTopicId, payload.topicId)
+    }
+
+    @Test
+    fun classify_plainText_returnsFallbackTextResult() {
+        val result = classifier.classify("田野笔记里关于仪式交换的一段摘录")
+
+        val payload = result.assertClassified()
+        assertEquals(ContentType.PLAIN_TEXT, payload.contentType)
+        assertEquals("快速提取片段", payload.tag)
+        assertEquals("topic-anthropology-clips", payload.topicId)
+    }
+
+    @Test
+    fun classify_blankInput_returnsValidationResult() {
+        val result = classifier.classify("   \n\t ")
+
+        assertTrue(result is ClassificationResult.BlankInput)
+        assertEquals("请输入要归档的内容", (result as ClassificationResult.BlankInput).message)
+    }
+
+    @Test
+    fun sampleData_containsPrototypeLabelsAndDeterministicFixtures() {
+        assertEquals(
+            listOf("全部", "网页文章", "图像截屏", "文档/PDF", "文本片段"),
+            ContentType.entries.map { it.label },
+        )
+        assertEquals(
+            listOf("大模型架构研究", "UX/UI 灵感板", "阅读剪报：人类学", "冷门旅行地参考"),
+            SampleKnowledgeData.topics.map { it.title },
+        )
+        assertTrue(SampleKnowledgeData.items.any { it.contentType == ContentType.WEB_ARTICLE })
+        assertTrue(SampleKnowledgeData.items.any { it.contentType == ContentType.IMAGE_SCREENSHOT })
+        assertTrue(SampleKnowledgeData.items.any { it.contentType == ContentType.DOCUMENT_PDF })
+        assertTrue(SampleKnowledgeData.items.any { it.contentType == ContentType.PLAIN_TEXT })
+        assertTrue(SampleKnowledgeData.topics.all { it.id.isNotBlank() && it.updatedAtEpochMillis > 0L })
+        assertTrue(SampleKnowledgeData.items.all { it.id.isNotBlank() && it.createdAtEpochMillis > 0L })
+    }
+
+    private fun ClassificationResult.assertClassified(): ClassificationPayload {
+        assertTrue(this is ClassificationResult.Classified)
+        return (this as ClassificationResult.Classified).payload
+    }
+}
