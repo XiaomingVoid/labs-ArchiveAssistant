@@ -1,9 +1,12 @@
 package com.lyihub.archiveassistant.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Log
 import android.widget.Toast
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.FileProvider
 import com.lyihub.archiveassistant.domain.ContentType
 import com.lyihub.archiveassistant.domain.DocumentFormat
 import com.lyihub.archiveassistant.domain.KnowledgeItem
@@ -66,7 +70,6 @@ import com.lyihub.archiveassistant.ui.components.TextActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.UUID
 
 private val DetailTabTypes = listOf(
     ContentType.ALL,
@@ -74,6 +77,35 @@ private val DetailTabTypes = listOf(
     ContentType.IMAGE_SCREENSHOT,
     ContentType.DOCUMENT,
 )
+
+private const val FileProviderAuthoritySuffix = ".fileprovider"
+
+private fun importFileName(displayName: String?, fallbackExtension: String): String {
+    val sanitizedName = displayName
+        ?.substringAfterLast('/')
+        ?.substringAfterLast('\\')
+        ?.replace('\u0000', '_')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+
+    return sanitizedName ?: "imported-file$fallbackExtension"
+}
+
+private fun uniqueImportFile(itemsDir: File, fileName: String): File {
+    val initialFile = File(itemsDir, fileName)
+    if (!initialFile.exists()) return initialFile
+
+    val dotIndex = fileName.lastIndexOf('.').takeIf { it > 0 }
+    val baseName = dotIndex?.let { fileName.substring(0, it) } ?: fileName
+    val extension = dotIndex?.let { fileName.substring(it) } ?: ""
+    var suffix = 1
+
+    while (true) {
+        val candidate = File(itemsDir, "$baseName ($suffix)$extension")
+        if (!candidate.exists()) return candidate
+        suffix += 1
+    }
+}
 
 @Composable
 fun DetailPane(
@@ -335,7 +367,7 @@ fun AddItemDialog(
                     val itemsDir = File(context.filesDir, "items").also { it.mkdirs() }
                     val ext = selectedFileName?.substringAfterLast('.', "")
                         ?.takeIf { it.isNotBlank() }?.let { ".$it" } ?: ""
-                    val dest = File(itemsDir, "${UUID.randomUUID()}$ext")
+                    val dest = uniqueImportFile(itemsDir, importFileName(selectedFileName, ext))
                     context.contentResolver.openInputStream(uri)?.use { input ->
                         dest.outputStream().use { output -> input.copyTo(output) }
                     }
@@ -364,13 +396,29 @@ fun AddItemDialog(
             ?.takeUnless { it == DocumentFormat.UNKNOWN }
     }
 
+    fun displayNameFor(uri: Uri): String {
+        val resolver = context.contentResolver
+        if (uri.scheme == "content") {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) {
+                        val name = cursor.getString(nameIndex)
+                        if (!name.isNullOrBlank()) return name
+                    }
+                }
+            }
+        }
+        return uri.lastPathSegment ?: uri.toString()
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedFileUri = uri
-        selectedFileName = uri?.lastPathSegment
+        selectedFileName = uri?.let(::displayNameFor)
         if (selectedContentType == ContentType.DOCUMENT) {
-            selectedDocumentFormat = detectDocumentFormat(uri?.lastPathSegment)
+            selectedDocumentFormat = detectDocumentFormat(selectedFileName)
         }
     }
 
@@ -487,7 +535,7 @@ fun AddItemDialog(
                         )
                         selectedFileUri?.let { uri ->
                             Text(
-                                text = "已选择: ${uri.lastPathSegment ?: uri.toString()}",
+                                text = "已选择: ${selectedFileName ?: displayNameFor(uri)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -502,7 +550,7 @@ fun AddItemDialog(
                         )
                         selectedFileUri?.let { uri ->
                             Text(
-                                text = "已选择: ${uri.lastPathSegment ?: uri.toString()}",
+                                text = "已选择: ${selectedFileName ?: displayNameFor(uri)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -692,20 +740,7 @@ fun CardModal(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
-                            try {
-                                val rawUrl = item.sourceUrl ?: return@clickable
-                                val url = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
-                                    rawUrl
-                                } else {
-                                    "https://$rawUrl"
-                                }
-                                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Log.e("DetailPane", "Failed to open URL: ${item.sourceUrl}", e)
-                                Toast.makeText(context, "无法打开链接", Toast.LENGTH_SHORT).show()
-                            }
+                            openKnowledgeItemSource(context, item)
                         },
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -735,6 +770,88 @@ fun CardModal(
                 }
             }
         }
+    }
+}
+
+private fun openKnowledgeItemSource(
+    context: android.content.Context,
+    item: KnowledgeItem,
+) {
+    val rawSource = item.sourceUrl?.trim().takeUnless { it.isNullOrBlank() } ?: return
+    if (item.contentType == ContentType.WEB_ARTICLE) {
+        openWebSource(context, rawSource)
+    } else {
+        openLocalSource(context, item, rawSource)
+    }
+}
+
+private fun openWebSource(
+    context: android.content.Context,
+    rawSource: String,
+) {
+    try {
+        val url = if (rawSource.startsWith("http://") || rawSource.startsWith("https://")) {
+            rawSource
+        } else {
+            "https://$rawSource"
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Log.e("DetailPane", "Failed to open URL: $rawSource", e)
+        Toast.makeText(context, "无法打开链接", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openLocalSource(
+    context: android.content.Context,
+    item: KnowledgeItem,
+    rawSource: String,
+) {
+    val file = File(rawSource)
+    if (!file.exists()) {
+        Toast.makeText(context, "文件不存在", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}$FileProviderAuthoritySuffix",
+            file,
+        )
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, mimeTypeFor(item, file))
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val chooser = Intent.createChooser(intent, "打开文件")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(chooser)
+    } catch (e: ActivityNotFoundException) {
+        Log.e("DetailPane", "No app can open file: $rawSource", e)
+        Toast.makeText(context, "无法打开文件", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Log.e("DetailPane", "Failed to open file: $rawSource", e)
+        Toast.makeText(context, "无法打开文件", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun mimeTypeFor(
+    item: KnowledgeItem,
+    file: File,
+): String {
+    val fileName = item.fileName ?: file.name
+    val extension = fileName.substringAfterLast('.', "")
+        .lowercase()
+        .takeIf { it.isNotBlank() }
+    val mimeFromExtension = extension?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
+    return mimeFromExtension ?: when (item.documentFormat) {
+        DocumentFormat.PDF -> "application/pdf"
+        DocumentFormat.MARKDOWN -> "text/markdown"
+        DocumentFormat.TXT -> "text/plain"
+        DocumentFormat.DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        else -> if (item.contentType == ContentType.IMAGE_SCREENSHOT) "image/*" else "*/*"
     }
 }
 
