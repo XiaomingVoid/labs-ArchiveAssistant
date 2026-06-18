@@ -30,6 +30,7 @@ data class ClipboardSnapshot(
     val sourceContentType: ContentType? = null,
     val sourceDocumentFormat: DocumentFormat? = null,
     val sourceFileName: String? = null,
+    val sourceLabel: String? = null,
 )
 
 data class ArchiveAssistantState(
@@ -60,6 +61,7 @@ data class ArchiveAssistantState(
     val clipboardSourceContentType: ContentType? = null,
     val clipboardSourceDocumentFormat: DocumentFormat? = null,
     val clipboardSourceFileName: String? = null,
+    val clipboardSourceLabel: String? = null,
     val latestClipboardSnapshot: ClipboardSnapshot? = null,
     val ignoredClipboardSnapshot: ClipboardSnapshot? = null,
 ) {

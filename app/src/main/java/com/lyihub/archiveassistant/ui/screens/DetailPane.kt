@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Log
 import android.widget.Toast
-import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -78,6 +77,10 @@ import com.lyihub.archiveassistant.ui.components.PaneHeader
 import com.lyihub.archiveassistant.ui.components.TextActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.lyihub.archiveassistant.data.copyUriToFile
+import com.lyihub.archiveassistant.data.importFileName
+import com.lyihub.archiveassistant.data.resolveDisplayName
+import com.lyihub.archiveassistant.data.uniqueImportFile
 import java.io.File
 
 private val DetailTabTypes = listOf(
@@ -88,33 +91,6 @@ private val DetailTabTypes = listOf(
 )
 
 private const val FileProviderAuthoritySuffix = ".fileprovider"
-
-private fun importFileName(displayName: String?, fallbackExtension: String): String {
-    val sanitizedName = displayName
-        ?.substringAfterLast('/')
-        ?.substringAfterLast('\\')
-        ?.replace('\u0000', '_')
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-
-    return sanitizedName ?: "imported-file$fallbackExtension"
-}
-
-private fun uniqueImportFile(itemsDir: File, fileName: String): File {
-    val initialFile = File(itemsDir, fileName)
-    if (!initialFile.exists()) return initialFile
-
-    val dotIndex = fileName.lastIndexOf('.').takeIf { it > 0 }
-    val baseName = dotIndex?.let { fileName.substring(0, it) } ?: fileName
-    val extension = dotIndex?.let { fileName.substring(it) } ?: ""
-    var suffix = 1
-
-    while (true) {
-        val candidate = File(itemsDir, "$baseName ($suffix)$extension")
-        if (!candidate.exists()) return candidate
-        suffix += 1
-    }
-}
 
 private fun markdownFileName(title: String): String {
     val baseName = title
@@ -436,10 +412,7 @@ fun AddItemDialog(
                     val ext = selectedFileName?.substringAfterLast('.', "")
                         ?.takeIf { it.isNotBlank() }?.let { ".$it" } ?: ""
                     val dest = uniqueImportFile(itemsDir, importFileName(selectedFileName, ext))
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        dest.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    dest
+                    if (copyUriToFile(context, uri, dest)) dest else null
                 } catch (_: Exception) {
                     null
                 }
@@ -464,27 +437,11 @@ fun AddItemDialog(
             ?.takeUnless { it == DocumentFormat.UNKNOWN }
     }
 
-    fun displayNameFor(uri: Uri): String {
-        val resolver = context.contentResolver
-        if (uri.scheme == "content") {
-            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (nameIndex >= 0) {
-                        val name = cursor.getString(nameIndex)
-                        if (!name.isNullOrBlank()) return name
-                    }
-                }
-            }
-        }
-        return uri.lastPathSegment ?: uri.toString()
-    }
-
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedFileUri = uri
-        selectedFileName = uri?.let(::displayNameFor)
+        selectedFileName = uri?.let { resolveDisplayName(context, it) }
         if (selectedContentType == ContentType.DOCUMENT) {
             selectedDocumentFormat = detectDocumentFormat(selectedFileName)
         }
@@ -673,7 +630,7 @@ fun AddItemDialog(
                         }
                         selectedFileUri?.let { uri ->
                             Text(
-                                text = "已选择: ${selectedFileName ?: displayNameFor(uri)}",
+                                text = "已选择: ${selectedFileName ?: resolveDisplayName(context, uri)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -690,7 +647,7 @@ fun AddItemDialog(
                         }
                         selectedFileUri?.let { uri ->
                             Text(
-                                text = "已选择: ${selectedFileName ?: displayNameFor(uri)}",
+                                text = "已选择: ${selectedFileName ?: resolveDisplayName(context, uri)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -995,6 +952,7 @@ private fun mimeTypeFor(
 fun ClipboardDialog(
     content: String,
     imageUri: String? = null,
+    sourceLabel: String? = null,
     onSummarize: () -> Unit,
     onManualCreate: () -> Unit,
     onDismiss: () -> Unit,
@@ -1023,7 +981,7 @@ fun ClipboardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("检测到剪切板内容") },
+        title = { Text(if (sourceLabel != null) "检测到${sourceLabel}内容" else "检测到剪切板内容") },
         text = {
             Column(
                 modifier = Modifier

@@ -40,6 +40,8 @@ class ArchiveAssistantStateStore(
     )
         private set
 
+    var releaseDragPermission: (() -> Unit)? = null
+
     private var nextTopicIndex = deriveNextTopicIndex(state.topics)
     private var nextItemIndex = deriveNextItemIndex(state.items)
 
@@ -182,6 +184,8 @@ class ArchiveAssistantStateStore(
     }
 
     fun closeAddItemDialog() {
+        releaseDragPermission?.invoke()
+        releaseDragPermission = null
         state = state.copy(
             addItemDialogVisible = false,
             addItemDialogValidationMessage = null,
@@ -245,6 +249,8 @@ class ArchiveAssistantStateStore(
             addItemDialogValidationMessage = null,
             addItemDialogPrefill = null,
         )
+        releaseDragPermission?.invoke()
+        releaseDragPermission = null
         saveData()
     }
 
@@ -475,6 +481,7 @@ class ArchiveAssistantStateStore(
         sourceContentType: ContentType? = if (imageUri != null) ContentType.IMAGE_SCREENSHOT else null,
         sourceDocumentFormat: DocumentFormat? = null,
         sourceFileName: String? = null,
+        sourceLabel: String? = null,
     ) {
         val normalizedContent = content.trim().takeIf { it.isNotBlank() }
         val normalizedImageUri = imageUri?.trim()?.takeIf { it.isNotBlank() }
@@ -489,6 +496,7 @@ class ArchiveAssistantStateStore(
             sourceContentType = sourceContentType,
             sourceDocumentFormat = sourceDocumentFormat,
             sourceFileName = normalizedFileName,
+            sourceLabel = sourceLabel,
         )
         if (snapshot == state.ignoredClipboardSnapshot) {
             state = state.copy(latestClipboardSnapshot = snapshot)
@@ -502,12 +510,15 @@ class ArchiveAssistantStateStore(
             clipboardSourceContentType = sourceContentType,
             clipboardSourceDocumentFormat = sourceDocumentFormat,
             clipboardSourceFileName = normalizedFileName,
+            clipboardSourceLabel = sourceLabel,
             latestClipboardSnapshot = snapshot,
             showClipboardDialog = true,
         )
     }
 
     fun dismissClipboardDialog() {
+        releaseDragPermission?.invoke()
+        releaseDragPermission = null
         val ignoredSnapshot = currentClipboardSnapshot()
         state = state.copy(
             clipboardContent = null,
@@ -516,6 +527,7 @@ class ArchiveAssistantStateStore(
             clipboardSourceContentType = null,
             clipboardSourceDocumentFormat = null,
             clipboardSourceFileName = null,
+            clipboardSourceLabel = null,
             ignoredClipboardSnapshot = ignoredSnapshot ?: state.ignoredClipboardSnapshot,
             showClipboardDialog = false,
         )
@@ -530,12 +542,15 @@ class ArchiveAssistantStateStore(
             clipboardSourceContentType = snapshot.sourceContentType,
             clipboardSourceDocumentFormat = snapshot.sourceDocumentFormat,
             clipboardSourceFileName = snapshot.sourceFileName,
+            clipboardSourceLabel = snapshot.sourceLabel,
             showClipboardDialog = true,
         )
     }
 
     fun acceptClipboardAndSummarize() {
         val content = state.clipboardContent ?: return
+        releaseDragPermission?.invoke()
+        releaseDragPermission = null
         state = state.copy(
             parserInput = content,
             clipboardContent = null,
@@ -544,6 +559,7 @@ class ArchiveAssistantStateStore(
             clipboardSourceContentType = null,
             clipboardSourceDocumentFormat = null,
             clipboardSourceFileName = null,
+            clipboardSourceLabel = null,
             ignoredClipboardSnapshot = null,
             showClipboardDialog = false,
         )
@@ -563,6 +579,7 @@ class ArchiveAssistantStateStore(
             clipboardSourceContentType = null,
             clipboardSourceDocumentFormat = null,
             clipboardSourceFileName = null,
+            clipboardSourceLabel = null,
             ignoredClipboardSnapshot = null,
             showClipboardDialog = false,
             selectedPane = AppPane.DETAIL,
@@ -607,6 +624,7 @@ class ArchiveAssistantStateStore(
             sourceContentType = state.clipboardSourceContentType,
             sourceDocumentFormat = state.clipboardSourceDocumentFormat,
             sourceFileName = state.clipboardSourceFileName,
+            sourceLabel = state.clipboardSourceLabel,
         ).takeIf { it.content != null || it.imageUri != null || it.sourceUri != null }
     }
 

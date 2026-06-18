@@ -513,4 +513,212 @@ class ArchiveAssistantStateStoreTest {
         assertEquals("http://localhost:8080", store.state.aiSettings.localEndpoint)
         assertEquals("qwen3-2b", store.state.aiSettings.modelName)
     }
+
+    @Test
+    fun showClipboard_withSourceLabel_storesSourceLabelAndOpensDialog() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "test", sourceLabel = "拖拽")
+
+        assertTrue(store.state.showClipboardDialog)
+        assertEquals("拖拽", store.state.clipboardSourceLabel)
+        assertEquals("test", store.state.clipboardContent)
+    }
+
+    @Test
+    fun dismissClipboardDialog_clearsSourceLabel() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "test", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+        assertEquals("拖拽", store.state.clipboardSourceLabel)
+
+        store.dismissClipboardDialog()
+
+        assertFalse(store.state.showClipboardDialog)
+        assertNull(store.state.clipboardSourceLabel)
+        assertNull(store.state.clipboardContent)
+    }
+
+    @Test
+    fun showClipboard_withDifferentSourceLabel_reopensAfterDismiss() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "same content", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+        store.dismissClipboardDialog()
+        assertFalse(store.state.showClipboardDialog)
+
+        store.showClipboard(content = "same content", sourceLabel = "剪切板")
+        assertTrue(store.state.showClipboardDialog)
+        assertEquals("剪切板", store.state.clipboardSourceLabel)
+    }
+
+    @Test
+    fun showClipboard_withFileMetadata_storesAllFields() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(
+            content = "",
+            sourceUri = "content://test/image.png",
+            sourceContentType = ContentType.IMAGE_SCREENSHOT,
+            sourceFileName = "image.png",
+            sourceLabel = "拖拽",
+        )
+
+        assertTrue(store.state.showClipboardDialog)
+        assertEquals("content://test/image.png", store.state.clipboardSourceUri)
+        assertEquals(ContentType.IMAGE_SCREENSHOT, store.state.clipboardSourceContentType)
+        assertEquals("image.png", store.state.clipboardSourceFileName)
+        assertEquals("拖拽", store.state.clipboardSourceLabel)
+    }
+
+    @Test
+    fun acceptClipboardAndManualCreate_withDragSource_opensAddItemDialog() {
+        val store = ArchiveAssistantStateStore()
+        store.createTopic("Drag test topic")
+
+        store.showClipboard(
+            content = "test.pdf",
+            sourceUri = "content://test/test.pdf",
+            sourceContentType = ContentType.DOCUMENT,
+            sourceDocumentFormat = DocumentFormat.PDF,
+            sourceFileName = "test.pdf",
+            sourceLabel = "拖拽",
+        )
+        assertTrue(store.state.showClipboardDialog)
+
+        store.acceptClipboardAndManualCreate()
+
+        assertTrue(store.state.addItemDialogVisible)
+        assertNotNull(store.state.addItemDialogPrefill)
+        assertEquals("test.pdf", store.state.addItemDialogPrefill?.title)
+        assertFalse(store.state.showClipboardDialog)
+        assertNull(store.state.clipboardSourceLabel)
+        assertEquals(store.state.items.size, SampleKnowledgeData.items.size)
+    }
+
+    @Test
+    fun acceptClipboardAndSummarize_withDragSource_clearsClipboardState() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "some text", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+
+        store.acceptClipboardAndSummarize()
+
+        assertFalse(store.state.showClipboardDialog)
+        assertNull(store.state.clipboardSourceLabel)
+        assertEquals("", store.state.parserInput)
+    }
+
+    @Test
+    fun dismissClipboardDialog_withDragSource_clearsAndSetsIgnoredSnapshot() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "text", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+
+        store.dismissClipboardDialog()
+
+        assertFalse(store.state.showClipboardDialog)
+        assertNull(store.state.clipboardSourceLabel)
+        assertNotNull(store.state.ignoredClipboardSnapshot)
+        assertEquals("拖拽", store.state.ignoredClipboardSnapshot?.sourceLabel)
+    }
+
+    @Test
+    fun showClipboard_sameDragContentAfterDismiss_doesNotReopen() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "text", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+        store.dismissClipboardDialog()
+        assertFalse(store.state.showClipboardDialog)
+
+        store.showClipboard(content = "text", sourceLabel = "拖拽")
+
+        assertFalse(store.state.showClipboardDialog)
+    }
+
+    @Test
+    fun showClipboard_sameContentDifferentSourceLabel_reopensAfterDismiss() {
+        val store = ArchiveAssistantStateStore()
+
+        store.showClipboard(content = "text", sourceLabel = "拖拽")
+        assertTrue(store.state.showClipboardDialog)
+        store.dismissClipboardDialog()
+        assertFalse(store.state.showClipboardDialog)
+
+        store.showClipboard(content = "text", sourceLabel = null)
+
+        assertTrue(store.state.showClipboardDialog)
+    }
+
+    @Test
+    fun releaseDragPermission_invokedOnDismiss() {
+        val store = ArchiveAssistantStateStore()
+        var released = false
+        store.releaseDragPermission = { released = true }
+
+        store.showClipboard(content = "text", sourceLabel = "拖拽")
+        store.dismissClipboardDialog()
+
+        assertTrue(released)
+        assertNull(store.releaseDragPermission)
+    }
+
+    @Test
+    fun acceptClipboardAndSummarize_withNullContent_doesNotReleasePermission() {
+        val store = ArchiveAssistantStateStore()
+        var released = false
+        store.releaseDragPermission = { released = true }
+
+        store.showClipboard(
+            content = "",
+            sourceUri = "content://test/image.png",
+            sourceContentType = ContentType.IMAGE_SCREENSHOT,
+            sourceLabel = "拖拽",
+        )
+        store.acceptClipboardAndSummarize()
+
+        assertFalse(released)
+        assertNotNull(store.releaseDragPermission)
+        assertTrue(store.state.showClipboardDialog)
+    }
+
+    @Test
+    fun releaseDragPermission_invokedOnManualCreateConfirm() {
+        val store = ArchiveAssistantStateStore()
+        store.openTopic(SampleKnowledgeData.DefaultTopicId)
+        var released = false
+        store.releaseDragPermission = { released = true }
+
+        store.showClipboard(
+            content = "drag.docx",
+            sourceUri = "content://test/drag.docx",
+            sourceContentType = ContentType.DOCUMENT,
+            sourceDocumentFormat = DocumentFormat.DOCX,
+            sourceFileName = "drag.docx",
+            sourceLabel = "拖拽",
+        )
+        store.acceptClipboardAndManualCreate()
+
+        assertFalse(released)
+        assertNotNull(store.releaseDragPermission)
+
+        store.confirmAddItem(
+            topicId = SampleKnowledgeData.DefaultTopicId,
+            title = "drag.docx",
+            contentType = ContentType.DOCUMENT,
+            sourceUrl = "content://test/drag.docx",
+            summary = "summary",
+            useAiSummary = false,
+            documentFormat = DocumentFormat.DOCX,
+            fileName = "drag.docx",
+        )
+
+        assertTrue(released)
+        assertNull(store.releaseDragPermission)
+    }
 }

@@ -197,6 +197,7 @@ fun ArchiveAssistantApp(
             ClipboardDialog(
                 content = state.clipboardContent ?: "",
                 imageUri = state.clipboardImageUri,
+                sourceLabel = state.clipboardSourceLabel,
                 onSummarize = effectiveStateStore::acceptClipboardAndSummarize,
                 onManualCreate = effectiveStateStore::acceptClipboardAndManualCreate,
                 onDismiss = effectiveStateStore::dismissClipboardDialog,
@@ -212,6 +213,22 @@ private data class ClipboardPayload(
     val sourceContentType: ContentType?,
     val sourceDocumentFormat: DocumentFormat?,
     val sourceFileName: String?,
+)
+
+data class DragClipboardPayload(
+    val content: String?,
+    val imageUri: String?,
+    val sourceUri: String?,
+    val sourceContentType: ContentType?,
+    val sourceDocumentFormat: DocumentFormat?,
+    val sourceFileName: String?,
+    val sourceLabel: String,
+    val ignoredItemCount: Int,
+)
+
+data class DragItemClassification(
+    val contentType: ContentType,
+    val documentFormat: DocumentFormat?,
 )
 
 private data class ClipboardSource(
@@ -255,6 +272,154 @@ private fun readClipboardPayload(context: Context): ClipboardPayload? {
     } else {
         null
     }
+}
+
+fun isMimeAllowed(mimeTypes: Array<String>): Boolean {
+    val allowedMimes = setOf(
+        "image/*",
+        "application/pdf",
+        "text/plain",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+        "text/markdown",
+        "application/rtf",
+    )
+    return mimeTypes.any { mime ->
+        allowedMimes.any { allowed ->
+            if (allowed.endsWith("/*")) {
+                mime.startsWith(allowed.removeSuffix("/*"))
+            } else {
+                mime == allowed
+            }
+        }
+    }
+}
+
+fun classifyDragItemByExtension(fileName: String?): DragItemClassification? {
+    val ext = fileName?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.isNotBlank() }
+        ?: return null
+    val imageExtensions = setOf("png", "jpg", "jpeg", "webp", "gif")
+    val extensionFormats = mapOf(
+        "pdf" to DocumentFormat.PDF,
+        "md" to DocumentFormat.MARKDOWN,
+        "markdown" to DocumentFormat.MARKDOWN,
+        "txt" to DocumentFormat.TXT,
+        "docx" to DocumentFormat.DOCX,
+        "xlsx" to DocumentFormat.UNKNOWN,
+        "pptx" to DocumentFormat.UNKNOWN,
+        "odt" to DocumentFormat.UNKNOWN,
+        "ods" to DocumentFormat.UNKNOWN,
+        "odp" to DocumentFormat.UNKNOWN,
+        "rtf" to DocumentFormat.UNKNOWN,
+    )
+    return if (ext in imageExtensions) {
+        DragItemClassification(ContentType.IMAGE_SCREENSHOT, null)
+    } else if (ext in extensionFormats) {
+        DragItemClassification(ContentType.DOCUMENT, extensionFormats[ext])
+    } else {
+        null
+    }
+}
+
+internal fun extractDragPayload(context: Context, clipData: ClipData?): DragClipboardPayload? {
+    if (clipData == null) return null
+    val clipDescription = clipData.description
+
+    val allowedMimes = setOf(
+        "image/*",
+        "application/pdf",
+        "text/plain",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+        "text/markdown",
+        "application/rtf",
+    )
+    val hasAllowedMime = allowedMimes.any { clipDescription.hasMimeType(it) }
+    if (!hasAllowedMime) return null
+
+    var skippedCount = 0
+    for (i in 0 until clipData.itemCount) {
+        val item = clipData.getItemAt(i)
+        val uri = item.uri ?: continue
+        val fileName = displayNameFor(context, uri)
+
+        val ext = fileName?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.isNotBlank() }
+        val classification = classifyDragItemByExtension(fileName)
+
+        val contentType: ContentType
+        val documentFormat: DocumentFormat?
+
+        if (classification != null) {
+            contentType = classification.contentType
+            documentFormat = classification.documentFormat
+        } else if (ext == null && clipDescription.hasMimeType("image/*")) {
+            contentType = ContentType.IMAGE_SCREENSHOT
+            documentFormat = null
+        } else if (ext == null) {
+            documentFormat = when {
+                clipDescription.hasMimeType("application/pdf") -> DocumentFormat.PDF
+                clipDescription.hasMimeType("text/markdown") -> DocumentFormat.MARKDOWN
+                clipDescription.hasMimeType("text/plain") -> DocumentFormat.TXT
+                clipDescription.hasMimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document") -> DocumentFormat.DOCX
+                else -> null
+            }
+            if (documentFormat != null) {
+                contentType = ContentType.DOCUMENT
+            } else {
+                skippedCount++
+                continue
+            }
+        } else {
+            skippedCount++
+            continue
+        }
+
+        val ignoredItemCount = skippedCount + (clipData.itemCount - 1 - i)
+        return DragClipboardPayload(
+            content = null,
+            imageUri = if (contentType == ContentType.IMAGE_SCREENSHOT) uri.toString() else null,
+            sourceUri = uri.toString(),
+            sourceContentType = contentType,
+            sourceDocumentFormat = documentFormat,
+            sourceFileName = fileName,
+            sourceLabel = "拖拽",
+            ignoredItemCount = ignoredItemCount,
+        )
+    }
+
+    if (clipDescription.hasMimeType("text/plain")) {
+        for (i in 0 until clipData.itemCount) {
+            val item = clipData.getItemAt(i)
+            val text = try {
+                item.coerceToText(context)?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            } catch (_: Exception) {
+                null
+            }
+            if (text != null) {
+                val ignoredCount = clipData.itemCount - 1
+                return DragClipboardPayload(
+                    content = text,
+                    imageUri = null,
+                    sourceUri = null,
+                    sourceContentType = ContentType.DOCUMENT,
+                    sourceDocumentFormat = DocumentFormat.TXT,
+                    sourceFileName = null,
+                    sourceLabel = "拖拽",
+                    ignoredItemCount = ignoredCount,
+                )
+            }
+        }
+    }
+
+    return null
 }
 
 private fun readableClipboardSource(context: Context, clip: ClipData): ClipboardSource? {
