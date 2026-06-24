@@ -13,6 +13,7 @@ import com.lyihub.archiveassistant.domain.DocumentFormat
 import com.lyihub.archiveassistant.domain.FakeLocalLlmEngine
 import com.lyihub.archiveassistant.domain.InferenceBackend
 import com.lyihub.archiveassistant.domain.LocalLlmEngine
+import com.lyihub.archiveassistant.domain.LocalLlmSmartSummarizer
 import com.lyihub.archiveassistant.domain.LocalModelInfo
 import com.lyihub.archiveassistant.domain.LocalModelState
 import com.lyihub.archiveassistant.domain.LocalModelStatus
@@ -1110,9 +1111,32 @@ class ArchiveAssistantStateStoreTest {
 
         store.submitParserInput()
 
+        waitUntil { !store.state.isSmartSummarizing && store.state.smartSummarizationMessage != null }
         assertEquals(SampleKnowledgeData.items, store.state.items)
         assertEquals("本地 AI 不可用，请先开启模型", store.state.smartSummarizationMessage)
         assertFalse(store.state.isSmartSummarizing)
+    }
+
+    @Test
+    fun submitParserInput_whenLocalModelReady_launchesLocalSummarizeAsynchronously() {
+        val gate = CompletableDeferred<SmartSummarizeResult>()
+        val inferenceConnection = FakeLocalInferenceGateway(
+            engine = null,
+            summarizeGate = gate,
+        )
+        val store = localStore(
+            inferenceConnection = inferenceConnection,
+            localModelStateProvider = { LocalModelState(status = LocalModelStatus.READY) },
+        )
+        store.updateAiSettings(AiEngineSettings(engineType = AiEngineType.LOCAL_MODEL))
+        store.updateParserInput("local inference note")
+
+        store.submitParserInput()
+
+        assertTrue(store.state.isSmartSummarizing || inferenceConnection.summarizeCallCount == 0)
+        gate.complete(successResult(title = "Async local summary"))
+        waitUntil { !store.state.isSmartSummarizing }
+        assertTrue(store.state.items.any { it.title == "Async local summary" })
     }
 
     @Test
@@ -1266,12 +1290,14 @@ class ArchiveAssistantStateStoreTest {
 
     private class FakeLocalInferenceGateway(
         private val engine: LocalLlmEngine?,
+        private val summarizeGate: CompletableDeferred<SmartSummarizeResult>? = null,
     ) : LocalInferenceGateway {
         private val state = MutableStateFlow(LocalModelState(status = LocalModelStatus.DOWNLOADED))
         var bindCount = 0
         var unbindCount = 0
         var startCount = 0
         var stopCount = 0
+        var summarizeCallCount = 0
         var lastBackend: InferenceBackend? = null
 
         override val serviceState: Flow<LocalModelState> = state
@@ -1285,6 +1311,16 @@ class ArchiveAssistantStateStoreTest {
         }
 
         override fun getEngine(): LocalLlmEngine? = engine
+
+        override suspend fun summarize(
+            request: SmartSummarizeRequest,
+            topics: List<com.lyihub.archiveassistant.domain.Topic>,
+            existingItems: List<com.lyihub.archiveassistant.domain.KnowledgeItem>,
+        ): SmartSummarizeResult {
+            summarizeCallCount++
+            val currentEngine = engine ?: return summarizeGate?.await() ?: SmartSummarizeResult.Failure("本地 AI 不可用，请先开启模型")
+            return LocalLlmSmartSummarizer(currentEngine).summarize(request, topics, existingItems)
+        }
 
         override fun startModel(model: LocalModelInfo, backend: InferenceBackend) {
             startCount++

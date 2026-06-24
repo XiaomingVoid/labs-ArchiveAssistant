@@ -7,10 +7,14 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import com.lyihub.archiveassistant.domain.InferenceBackend
+import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.LocalLlmEngine
 import com.lyihub.archiveassistant.domain.LocalModelInfo
 import com.lyihub.archiveassistant.domain.LocalModelState
 import com.lyihub.archiveassistant.domain.LocalModelStatus
+import com.lyihub.archiveassistant.domain.SmartSummarizeRequest
+import com.lyihub.archiveassistant.domain.SmartSummarizeResult
+import com.lyihub.archiveassistant.domain.Topic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -24,6 +28,12 @@ interface LocalInferenceGateway {
     fun unbind()
 
     fun getEngine(): LocalLlmEngine?
+
+    suspend fun summarize(
+        request: SmartSummarizeRequest,
+        topics: List<Topic>,
+        existingItems: List<KnowledgeItem>,
+    ): SmartSummarizeResult
 
     fun startModel(model: LocalModelInfo, backend: InferenceBackend)
 
@@ -74,6 +84,15 @@ class LocalInferenceConnection(private val context: Context) : LocalInferenceGat
     }
 
     override fun getEngine(): LocalLlmEngine? = binderFlow.value?.getEngine()
+
+    override suspend fun summarize(
+        request: SmartSummarizeRequest,
+        topics: List<Topic>,
+        existingItems: List<KnowledgeItem>,
+    ): SmartSummarizeResult {
+        val binder = binderFlow.value ?: return SmartSummarizeResult.Failure("本地 AI 不可用，请先开启模型")
+        return binder.summarize(request, topics, existingItems)
+    }
 
     override fun startModel(model: LocalModelInfo, backend: InferenceBackend) {
         val binder = binderFlow.value

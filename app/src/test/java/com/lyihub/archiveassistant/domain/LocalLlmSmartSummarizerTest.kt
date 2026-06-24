@@ -59,6 +59,38 @@ class LocalLlmSmartSummarizerTest {
     }
 
     @Test
+    fun summarizeSuccessParsesJsonFence() = runTest {
+        val summarizer = summarizerReturning(
+            """
+            ```json
+            {"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}
+            ```
+            """.trimIndent(),
+        )
+
+        val result = summarizer.summarize(SmartSummarizeRequest("AI Agent 论文内容"), topics, existingItems)
+
+        assertTrue(result is SmartSummarizeResult.Success)
+        assertEquals("Agent 论文", (result as SmartSummarizeResult.Success).title)
+    }
+
+    @Test
+    fun summarizeSuccessParsesTurnTokenWrappedJson() = runTest {
+        val summarizer = summarizerReturning(
+            """
+            <|turn>model
+            {"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}<turn|>
+            <|turn>model
+            """.trimIndent(),
+        )
+
+        val result = summarizer.summarize(SmartSummarizeRequest("AI Agent 论文内容"), topics, existingItems)
+
+        assertTrue(result is SmartSummarizeResult.Success)
+        assertEquals("Agent 论文", (result as SmartSummarizeResult.Success).title)
+    }
+
+    @Test
     fun promptIncludesMaterialContextAndExistingTopicIdsOnly() = runTest {
         val engine = initializedEngine(
             """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent。","sourceUrl":"https://example.com/a","documentFormat":"PDF"}""",

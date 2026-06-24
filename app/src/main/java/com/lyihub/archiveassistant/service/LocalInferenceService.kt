@@ -18,10 +18,15 @@ import androidx.core.content.ContextCompat
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.data.LiteRtLmEngineAdapter
 import com.lyihub.archiveassistant.domain.InferenceBackend
+import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.LocalLlmEngine
+import com.lyihub.archiveassistant.domain.LocalLlmSmartSummarizer
 import com.lyihub.archiveassistant.domain.LocalModelInfo
 import com.lyihub.archiveassistant.domain.LocalModelState
 import com.lyihub.archiveassistant.domain.LocalModelStatus
+import com.lyihub.archiveassistant.domain.SmartSummarizeRequest
+import com.lyihub.archiveassistant.domain.SmartSummarizeResult
+import com.lyihub.archiveassistant.domain.Topic
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +35,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class LocalInferenceService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -60,6 +67,12 @@ class LocalInferenceService : Service() {
         private val controller: LocalInferenceServiceController,
     ) : Binder() {
         fun getEngine(): LocalLlmEngine? = controller.getEngine()
+
+        suspend fun summarize(
+            request: SmartSummarizeRequest,
+            topics: List<Topic>,
+            existingItems: List<KnowledgeItem>,
+        ): SmartSummarizeResult = controller.summarize(request, topics, existingItems)
 
         fun startModel(model: LocalModelInfo, backend: InferenceBackend) {
             controller.startModel(model, backend)
@@ -149,6 +162,7 @@ internal class LocalInferenceServiceController(
     private val foregroundController: InferenceForegroundController,
 ) {
     private val stateFlow = MutableSharedFlow<LocalModelState>(replay = STATE_REPLAY_COUNT)
+    private val engineMutex = Mutex()
 
     @Volatile
     private var engine: LocalLlmEngine? = null
@@ -163,54 +177,67 @@ internal class LocalInferenceServiceController(
 
     fun startModel(model: LocalModelInfo, backend: InferenceBackend) {
         scope.launch {
-            releaseCurrentEngine()
-            val modelPath = modelPathProvider(model)
-            val initializingState = LocalModelState(
-                status = LocalModelStatus.INITIALIZING,
-                activeBackend = backend,
-                modelPath = modelPath,
-            )
-            stateFlow.emit(initializingState)
-            foregroundController.startLoading()
+            engineMutex.withLock {
+                releaseCurrentEngineLocked()
+                val modelPath = modelPathProvider(model)
+                val initializingState = LocalModelState(
+                    status = LocalModelStatus.INITIALIZING,
+                    activeBackend = backend,
+                    modelPath = modelPath,
+                )
+                stateFlow.emit(initializingState)
+                foregroundController.startLoading()
 
-            val nextEngine = engineFactory()
-            val result = nextEngine.initialize(modelPath, backend)
-            result.onSuccess { activeBackend ->
-                engine = nextEngine
-                stateFlow.emit(
-                    LocalModelState(
-                        status = LocalModelStatus.READY,
-                        activeBackend = activeBackend,
-                        modelPath = modelPath,
-                    ),
-                )
-                foregroundController.showReady()
-            }.onFailure { error ->
-                nextEngine.release()
-                engine = null
-                stateFlow.emit(
-                    LocalModelState(
-                        status = LocalModelStatus.ERROR,
-                        activeBackend = InferenceBackend.UNKNOWN,
-                        errorMessage = error.message,
-                        modelPath = modelPath,
-                    ),
-                )
-                foregroundController.stop()
+                val nextEngine = engineFactory()
+                val result = nextEngine.initialize(modelPath, backend)
+                result.onSuccess { activeBackend ->
+                    engine = nextEngine
+                    stateFlow.emit(
+                        LocalModelState(
+                            status = LocalModelStatus.READY,
+                            activeBackend = activeBackend,
+                            modelPath = modelPath,
+                        ),
+                    )
+                    foregroundController.showReady()
+                }.onFailure { error ->
+                    nextEngine.release()
+                    engine = null
+                    stateFlow.emit(
+                        LocalModelState(
+                            status = LocalModelStatus.ERROR,
+                            activeBackend = InferenceBackend.UNKNOWN,
+                            errorMessage = error.message,
+                            modelPath = modelPath,
+                        ),
+                    )
+                    foregroundController.stop()
+                }
             }
         }
     }
 
     fun stopModel() {
         scope.launch {
-            stateFlow.emit(LocalModelState(status = LocalModelStatus.STOPPING))
-            releaseCurrentEngine()
-            foregroundController.stop()
-            stateFlow.emit(LocalModelState(status = LocalModelStatus.DOWNLOADED))
+            engineMutex.withLock {
+                stateFlow.emit(LocalModelState(status = LocalModelStatus.STOPPING))
+                releaseCurrentEngineLocked()
+                foregroundController.stop()
+                stateFlow.emit(LocalModelState(status = LocalModelStatus.DOWNLOADED))
+            }
         }
     }
 
-    private suspend fun releaseCurrentEngine() {
+    suspend fun summarize(
+        request: SmartSummarizeRequest,
+        topics: List<Topic>,
+        existingItems: List<KnowledgeItem>,
+    ): SmartSummarizeResult = engineMutex.withLock {
+        val currentEngine = engine ?: return@withLock SmartSummarizeResult.Failure("本地 AI 不可用，请先开启模型")
+        LocalLlmSmartSummarizer(currentEngine).summarize(request, topics, existingItems)
+    }
+
+    private suspend fun releaseCurrentEngineLocked() {
         val currentEngine = engine
         engine = null
         currentEngine?.release()

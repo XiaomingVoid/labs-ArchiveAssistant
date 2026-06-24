@@ -33,7 +33,6 @@ import com.lyihub.archiveassistant.domain.SmartSummarizer
 import com.lyihub.archiveassistant.domain.Topic
 import com.lyihub.archiveassistant.service.LocalInferenceGateway
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -514,7 +513,7 @@ class ArchiveAssistantStateStore(
             return
         }
 
-        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+        scope.launch {
             summarizeAndSave(rawInput, closeClipboardOnSuccess)
         }
     }
@@ -545,17 +544,16 @@ class ArchiveAssistantStateStore(
             )
         }
 
-        val engine = localLlmEngine ?: inferenceConnection?.getEngine()
-        if (engine == null) return SmartSummarizeResult.Failure(LOCAL_AI_UNAVAILABLE_MESSAGE)
-
-        val summarizer = com.lyihub.archiveassistant.domain.LocalLlmSmartSummarizer(engine)
+        val request = SmartSummarizeRequest(rawText = rawInput)
+        val directEngine = localLlmEngine
         state = state.copy(localModelState = state.localModelState.copy(status = LocalModelStatus.INFERENCING))
         return try {
-            summarizer.summarize(
-                SmartSummarizeRequest(rawText = rawInput),
-                state.topics,
-                state.items,
-            )
+            if (directEngine != null) {
+                LocalLlmSmartSummarizer(directEngine).summarize(request, state.topics, state.items)
+            } else {
+                inferenceConnection?.summarize(request, state.topics, state.items)
+                    ?: SmartSummarizeResult.Failure(LOCAL_AI_UNAVAILABLE_MESSAGE)
+            }
         } finally {
             if (state.localModelState.status == LocalModelStatus.INFERENCING) {
                 state = state.copy(localModelState = state.localModelState.copy(status = LocalModelStatus.READY))

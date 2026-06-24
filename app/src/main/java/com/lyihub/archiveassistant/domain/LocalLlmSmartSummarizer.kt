@@ -33,7 +33,7 @@ class LocalLlmSmartSummarizer(private val engine: LocalLlmEngine) : SmartSummari
     }
 
     private fun parseResult(output: String, topics: List<Topic>): SmartSummarizeResult.Success {
-        val json = JSONObject(output)
+        val json = JSONObject(extractJsonObject(output))
         val topicId = json.requiredString("topicId")
         val contentType = enumValue<ContentType>(json.requiredString("contentType"))
         val tag = json.requiredString("tag")
@@ -91,6 +91,46 @@ class LocalLlmSmartSummarizer(private val engine: LocalLlmEngine) : SmartSummari
     }
 
     private inline fun <reified T : Enum<T>> enumValue(value: String): T = enumValueOf(value)
+
+    private fun extractJsonObject(output: String): String {
+        val trimmed = output.trim()
+        val unfenced = if (trimmed.startsWith("```")) {
+            trimmed
+                .removePrefix("```")
+                .removePrefix("json")
+                .removePrefix("JSON")
+                .trim()
+                .removeSuffix("```")
+                .trim()
+        } else {
+            trimmed
+        }
+
+        val start = unfenced.indexOf('{')
+        require(start >= 0)
+
+        var depth = 0
+        var inString = false
+        var isEscaped = false
+        for (index in start until unfenced.length) {
+            val char = unfenced[index]
+            if (isEscaped) {
+                isEscaped = false
+                continue
+            }
+            when {
+                char == '\\' && inString -> isEscaped = true
+                char == '"' -> inString = !inString
+                !inString && char == '{' -> depth += 1
+                !inString && char == '}' -> {
+                    depth -= 1
+                    if (depth == 0) return unfenced.substring(start, index + 1)
+                }
+            }
+        }
+
+        error("No complete JSON object found")
+    }
 
     private companion object {
         val ALLOWED_CONTENT_TYPES = setOf(
