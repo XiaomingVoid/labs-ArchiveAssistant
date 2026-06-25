@@ -49,6 +49,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.lyihub.archiveassistant.R
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -88,6 +89,14 @@ private data class FoldTransform(
     val shadingAlpha: Float,
     val edgeShadowProgress: Float,
     val visible: Boolean,
+)
+
+private data class OpeningPlacement(
+    val article: ArticleLayout,
+    val left: Float,
+    val pivotX: Float,
+    val rotationY: Float,
+    val foldAmount: Float,
 )
 
 private enum class MemorialStage {
@@ -441,6 +450,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         strokeWidth = 1.2f * displayDensity
         color = AndroidColor.argb(178, AndroidColor.red(IMPERIAL_GOLD), AndroidColor.green(IMPERIAL_GOLD), AndroidColor.blue(IMPERIAL_GOLD))
     }
+    private val layerAlphaPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val toolbarTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = MEMORIAL_INK_BROWN
         textSize = sp(18f)
@@ -474,6 +484,8 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     private var coverFinalStamp: MemorialStamp? = null
     private var coverFinalStampStrength = 0f
     private var coverFinalStampFromButton = false
+    private var completedAlpha = 0f
+    private var completedAnimator: ValueAnimator? = null
     private var coverStackIndex = 0
     private var coverStackLiftProgress = 1f
     private var summaryVisible = false
@@ -539,6 +551,9 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         pages = nextPages
         foldScrollX = 0f
         openProgress = 0f
+        completedAlpha = 0f
+        completedAnimator?.cancel()
+        completedAnimator = null
         stage = MemorialStage.CoverOnly
         hasPlayedOpenAnimation = false
         rebuildLayout(width, height)
@@ -565,6 +580,8 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         coverSwipeAnimator = null
         stampAnimator?.cancel()
         stampAnimator = null
+        completedAnimator?.cancel()
+        completedAnimator = null
         removeCallbacks(showSummaryRunnable)
         super.onDetachedFromWindow()
     }
@@ -597,7 +614,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
                 drawCollapseButton(canvas)
                 drawVerdictToolbar(canvas)
             }
-            MemorialStage.Completed -> drawCompletedState(canvas)
+            MemorialStage.Completed -> drawCompletedState(canvas, completedAlpha)
         }
         drawStampOverlay(canvas)
         canvas.restore()
@@ -609,7 +626,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         if (stage == MemorialStage.Completed) {
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 performClick()
-                onAutoDismiss?.invoke()
+                dismissCompletedState()
             }
             return true
         }
@@ -727,7 +744,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
                 coverSwipeAnimator?.cancel()
                 removeCallbacks(showSummaryRunnable)
                 val cover = articles.firstOrNull()
-                val coverLeft = cover?.let { foldLeft + ((foldRight - foldLeft) - it.width) / 2f } ?: 0f
+                val coverLeft = cover?.let { foldLeft } ?: 0f
                 coverTouchStartedOnCover = cover?.let {
                     RectF(coverLeft, it.top, coverLeft + it.width, it.top + it.height).contains(event.x, event.y)
                 } ?: false
@@ -905,7 +922,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
 
     private fun drawCoverOnly(canvas: Canvas) {
         val cover = articles.firstOrNull() ?: return
-        val coverLeft = foldLeft + ((foldRight - foldLeft) - cover.width) / 2f
+        val coverLeft = foldLeft
         drawCoverStack(canvas, cover, coverLeft)
         val rotation = (coverDragX / max(1f, foldRight - foldLeft)).coerceIn(-1f, 1f) * 10f
         val isRevealingNextCover = currentStamp == null &&
@@ -929,9 +946,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
             canvas.scale(revealScale, revealScale, coverLeft + cover.width / 2f, cover.top + cover.height / 2f)
         }
         if (coverDragX != 0f || coverDragY != 0f) {
-            if (!coverFinalStampFromButton) {
-                canvas.rotate(rotation, coverLeft + cover.width / 2f, cover.top + cover.height * 0.62f)
-            }
+            canvas.rotate(rotation, coverLeft + cover.width / 2f, cover.top + cover.height * 0.62f)
             canvas.translate(coverDragX, coverDragY)
         }
         drawArticle(
@@ -1177,7 +1192,8 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         drawStaticLayout(canvas, bodyLayout, contentLeft, y)
     }
 
-    private fun drawCompletedState(canvas: Canvas) {
+    private fun drawCompletedState(canvas: Canvas, alpha: Float) {
+        if (alpha <= 0.01f) return
         val side = min(
             min(dp(480f), foldRight - foldLeft - dp(52f)),
             foldBottom - foldTop - dp(56f),
@@ -1185,22 +1201,24 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         val left = foldLeft + ((foldRight - foldLeft) - side) / 2f
         val top = foldTop + ((foldBottom - foldTop) - side) / 2f
         val rect = RectF(left, top, left + side, top + side)
+        layerAlphaPaint.alpha = (255f * alpha.coerceIn(0f, 1f)).roundToInt().coerceIn(0, 255)
+        val layer = canvas.saveLayer(rect, layerAlphaPaint)
 
         completionTexture?.let { texture ->
             canvas.drawBitmap(texture, null, rect, completionImagePaint)
         }
 
         val completionTitlePaint = TextPaint(titlePaint).apply {
-            textSize = sp(36f)
+            textSize = sp(33f)
             letterSpacing = 0.08f
         }
         val completionBodyPaint = TextPaint(quotePaint).apply {
-            textSize = sp(24f)
+            textSize = sp(22f)
             color = AndroidColor.rgb(72, 43, 31)
             textAlign = Paint.Align.LEFT
         }
         val completionHintPaint = TextPaint(metaPaint).apply {
-            textSize = sp(23f)
+            textSize = sp(21f)
             color = IMPERIAL_GOLD_DARK
         }
 
@@ -1219,6 +1237,8 @@ private class FoldScrollNativeView(context: Context) : View(context) {
             alignment = Layout.Alignment.ALIGN_CENTER,
         )
         drawCenteredText(canvas, "轻点退朝", rect.centerX(), rect.bottom - rect.height() * 0.24f, completionHintPaint)
+        canvas.restoreToCount(layer)
+        layerAlphaPaint.alpha = 255
     }
 
     private fun drawCoverSwipePreview(canvas: Canvas, coverLeft: Float, cover: ArticleLayout) {
@@ -1633,64 +1653,76 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     private fun drawOpeningAnimation(canvas: Canvas, viewportWidth: Float) {
         if (articles.isEmpty()) return
 
-        val packedStep = min(articleWidth * 0.09f, viewportWidth / (articles.size + 5f))
-        val coverLeft = foldLeft
-        val foldedClusterLeft = coverLeft + articleWidth - packedStep
+        val placements = buildOpeningPlacements()
 
-        for (panelIndex in articles.indices.reversed()) {
-            val article = articles[panelIndex]
-            val waveDelay = 0.04f * article.pageIndex
-            val localProgress = openingSegmentProgress(openProgress, waveDelay)
-            val foldAmount = 1f - localProgress
-            val isCover = article.pageIndex == 0
-            val finalLeft = foldLeft + article.left
-            val foldedLeft = if (isCover) {
-                coverLeft
-            } else {
-                foldedClusterLeft + (article.pageIndex - 1) * packedStep
-            }
-            val articleLeft = lerp(foldedLeft, finalLeft, localProgress)
+        for (placement in placements.asReversed()) {
+            val article = placement.article
             val panelRect = RectF(
-                articleLeft,
+                placement.left,
                 article.top,
-                articleLeft + article.width,
+                placement.left + article.width,
                 article.top + article.height,
             )
-            val facesForwardWhenClosed = article.pageIndex % 2 == 0
-            val pivotsOnRight = facesForwardWhenClosed
-            val pivotX = if (pivotsOnRight) panelRect.right else panelRect.left
-            val foldRotation = if (isCover) 0f else 82f * foldAmount
-            val rotation = if (pivotsOnRight) {
-                -foldRotation
-            } else {
-                foldRotation
-            }
-            val visualFoldAmount = if (isCover) 0f else foldAmount
+            val pivotsOnLeft = article.pageIndex % 2 == 1
 
             canvas.save()
-            if (rotation != 0f) {
+            if (placement.rotationY != 0f) {
                 applyFoldMatrix(
                     canvas = canvas,
-                    rotationY = rotation,
-                    pivotX = pivotX,
+                    rotationY = placement.rotationY,
+                    pivotX = placement.pivotX,
                 )
             }
             canvas.clipRect(panelRect)
             drawArticle(
                 canvas = canvas,
                 article = article,
-                left = articleLeft,
+                left = placement.left,
                 transform = FoldTransform(
-                    rotationY = rotation,
-                    pivotX = pivotX,
-                    shadingAlpha = 0.08f * visualFoldAmount,
-                    edgeShadowProgress = 0.42f * visualFoldAmount,
+                    rotationY = placement.rotationY,
+                    pivotX = placement.pivotX,
+                    shadingAlpha = 0.1f * placement.foldAmount,
+                    edgeShadowProgress = 0.48f * placement.foldAmount,
                     visible = true,
                 ),
             )
-            drawOpeningSegmentTone(canvas, panelRect, visualFoldAmount, pivotsOnRight)
+            drawOpeningSegmentTone(canvas, panelRect, placement.foldAmount, !pivotsOnLeft)
             canvas.restore()
         }
+    }
+
+    private fun buildOpeningPlacements(): List<OpeningPlacement> {
+        if (articles.isEmpty()) return emptyList()
+        val placements = ArrayList<OpeningPlacement>(articles.size)
+        var chainEdgeX = foldLeft
+
+        articles.forEachIndexed { index, article ->
+            val rotation = openingRotationFor(index)
+            val pivotX = chainEdgeX
+            val left = chainEdgeX
+            placements += OpeningPlacement(
+                article = article,
+                left = left,
+                pivotX = pivotX,
+                rotationY = rotation,
+                foldAmount = if (index == 0) 0f else abs(rotation) / 180f,
+            )
+            chainEdgeX = if (rotation == 0f) {
+                left + article.width
+            } else {
+                pivotX + article.width * cos(rotation * PI.toFloat() / 180f)
+            }
+        }
+        return placements
+    }
+
+    private fun openingRotationFor(pageIndex: Int): Float {
+        if (pageIndex == 0) return 0f
+        if (pageIndex % 2 == 0) return 0f
+        val waveDelay = 0.035f * (pageIndex - 1)
+        val localProgress = openingSegmentProgress(openProgress, waveDelay)
+        val rotationMagnitude = 180f * (1f - localProgress)
+        return -rotationMagnitude
     }
 
     private fun applyFoldMatrix(
@@ -2664,10 +2696,68 @@ private class FoldScrollNativeView(context: Context) : View(context) {
             stampProgress = 0f
             openProgress = 0f
             foldScrollX = 0f
-            stage = MemorialStage.Completed
-            invalidate()
+            showCompletedState()
         } else {
             showNextCoverFromStack()
+        }
+    }
+
+    private fun showCompletedState() {
+        completedAnimator?.cancel()
+        completedAlpha = 0f
+        stage = MemorialStage.Completed
+        completedAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 680L
+            interpolator = PathInterpolator(0.18f, 0f, 0f, 1f)
+            addUpdateListener { animator ->
+                completedAlpha = animator.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (completedAnimator == animation) {
+                        completedAnimator = null
+                    }
+                    completedAlpha = 1f
+                    invalidate()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun dismissCompletedState() {
+        if (stage != MemorialStage.Completed) {
+            onAutoDismiss?.invoke()
+            return
+        }
+        completedAnimator?.cancel()
+        val startAlpha = completedAlpha.coerceIn(0f, 1f)
+        completedAnimator = ValueAnimator.ofFloat(startAlpha, 0f).apply {
+            duration = 360L
+            interpolator = PathInterpolator(0.3f, 0f, 0.8f, 1f)
+            addUpdateListener { animator ->
+                completedAlpha = animator.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                private var canceled = false
+
+                override fun onAnimationCancel(animation: Animator) {
+                    canceled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (completedAnimator == animation) {
+                        completedAnimator = null
+                    }
+                    if (!canceled) {
+                        completedAlpha = 0f
+                        onAutoDismiss?.invoke()
+                    }
+                }
+            })
+            start()
         }
     }
 
