@@ -29,7 +29,6 @@ class LocalLlmSmartSummarizerTest {
             id = "item-1",
             topicId = "topic-ai",
             contentType = ContentType.DOCUMENT,
-            tag = "论文",
             title = "AI Agent 论文",
             summary = "AI Agent 记忆与工具使用",
             fullText = "agent memory and tool use",
@@ -42,7 +41,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun summarizeSuccessParsesStrictJson() = runTest {
         val summarizer = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}""",
         )
 
         val result = summarizer.summarize(SmartSummarizeRequest("AI Agent 论文内容"), topics, existingItems)
@@ -51,7 +50,6 @@ class LocalLlmSmartSummarizerTest {
         result as SmartSummarizeResult.Success
         assertEquals("topic-ai", result.topicId)
         assertEquals(ContentType.DOCUMENT, result.contentType)
-        assertEquals("论文", result.tag)
         assertEquals("Agent 论文", result.title)
         assertEquals("介绍 Agent 记忆与工具使用。", result.summary)
         assertEquals(DocumentFormat.PDF, result.documentFormat)
@@ -63,7 +61,7 @@ class LocalLlmSmartSummarizerTest {
         val summarizer = summarizerReturning(
             """
             ```json
-            {"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}
+            {"topicId":"topic-ai","contentType":"DOCUMENT","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}
             ```
             """.trimIndent(),
         )
@@ -79,7 +77,7 @@ class LocalLlmSmartSummarizerTest {
         val summarizer = summarizerReturning(
             """
             <|turn>model
-            {"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}<turn|>
+            {"topicId":"topic-ai","contentType":"DOCUMENT","title":"Agent 论文","summary":"介绍 Agent 记忆与工具使用。","sourceUrl":"","documentFormat":"PDF"}<turn|>
             <|turn>model
             """.trimIndent(),
         )
@@ -91,9 +89,9 @@ class LocalLlmSmartSummarizerTest {
     }
 
     @Test
-    fun promptIncludesMaterialContextAndExistingTopicIdsOnly() = runTest {
+    fun promptIncludesTopicOptionsOnly() = runTest {
         val engine = initializedEngine(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Agent 论文","summary":"介绍 Agent。","sourceUrl":"https://example.com/a","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Agent 论文","summary":"介绍 Agent。","sourceUrl":"https://example.com/a","documentFormat":"PDF"}""",
         )
         val summarizer = LocalLlmSmartSummarizer(engine)
 
@@ -111,10 +109,76 @@ class LocalLlmSmartSummarizerTest {
         assertTrue(prompt.contains("topic-ai"))
         assertTrue(prompt.contains("topic-reading"))
         assertTrue(prompt.contains("禁止创建新主题"))
-        assertTrue(prompt.contains("item-1"))
-        assertTrue(prompt.contains("AI Agent 记忆与工具使用"))
+        assertTrue(!prompt.contains("item-1"))
+        assertTrue(!prompt.contains("AI Agent 记忆与工具使用"))
         assertTrue(prompt.contains("https://example.com/a"))
         assertEquals(768, engine.lastMaxTokens)
+    }
+
+    @Test
+    fun promptIncludesFetchedWebContextWhenAvailable() = runTest {
+        val engine = initializedEngine(
+            """{"topicId":"topic-ai","contentType":"WEB_ARTICLE","title":"From Fetched Title","summary":"Based on fetched body.","sourceUrl":"https://example.com/article","documentFormat":"UNKNOWN"}""",
+        )
+        val summarizer = LocalLlmSmartSummarizer(engine)
+        val context = FetchedWebContext(
+            originalUrl = "https://example.com/article",
+            title = "Original Article Title",
+            description = "A description of the article.",
+            bodyText = "This is the full fetched body text of the article. It contains useful information for summarization.",
+        )
+
+        summarizer.summarize(
+            SmartSummarizeRequest(
+                rawText = "https://example.com/article",
+                sourceUrl = "https://example.com/article",
+                sourceTitle = "Some title",
+                fetchedWebContext = context,
+            ),
+            topics,
+            existingItems,
+        )
+
+        val prompt = engine.lastPrompt.orEmpty()
+        assertTrue(prompt.contains("https://example.com/article"))
+        assertTrue(prompt.contains("Original Article Title"))
+        assertTrue(prompt.contains("A description of the article."))
+        assertTrue(prompt.contains("This is the full fetched body text of the article."))
+        assertTrue(prompt.contains("禁止只根据 URL 猜测标题或摘要"))
+        assertTrue(prompt.contains("sourceUrl 必须等于原始 URL"))
+    }
+
+    @Test
+    fun promptIncludesFetchedDocumentContextWhenAvailable() = runTest {
+        val engine = initializedEngine(
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Doc Title","summary":"Based on document text.","sourceUrl":"","documentFormat":"DOCX"}""",
+        )
+        val summarizer = LocalLlmSmartSummarizer(engine)
+        val context = FetchedDocumentContext(
+            fileName = "research.docx",
+            format = DocumentFormat.DOCX,
+            extractedText = "Document body excerpt for safe summarization.",
+            originalCharCount = 80_000,
+            isTruncated = true,
+        )
+
+        summarizer.summarize(
+            SmartSummarizeRequest(
+                rawText = "research.docx",
+                sourceUrl = "content://doc/research",
+                sourceTitle = "research.docx",
+                fetchedDocumentContext = context,
+            ),
+            topics,
+            existingItems,
+        )
+
+        val prompt = engine.lastPrompt.orEmpty()
+        assertTrue(prompt.contains("已解析的文档内容"))
+        assertTrue(prompt.contains("research.docx"))
+        assertTrue(prompt.contains("文档格式：DOCX"))
+        assertTrue(prompt.contains("Document body excerpt for safe summarization."))
+        assertTrue(prompt.contains("禁止猜测未提供内容"))
     }
 
     @Test
@@ -127,7 +191,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun unknownTopicReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-missing","contentType":"DOCUMENT","tag":"论文","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-missing","contentType":"DOCUMENT","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -147,7 +211,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun invalidEnumReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"ARTICLE","tag":"论文","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"ARTICLE","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -156,7 +220,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun allContentTypeReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"ALL","tag":"全部","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"ALL","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -165,7 +229,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun missingDocumentFormatReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Title","summary":"Summary","sourceUrl":""}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Title","summary":"Summary","sourceUrl":""}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -174,7 +238,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun invalidDocumentFormatReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"HTML"}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"HTML"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -183,7 +247,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun missingRequiredFieldReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":"论文","title":"Title","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":"Title","sourceUrl":"","documentFormat":"PDF"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -192,7 +256,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun blankRequiredFieldReturnsFailure() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"DOCUMENT","tag":" ","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
+            """{"topicId":"topic-ai","contentType":"DOCUMENT","title":" ","summary":"Summary","sourceUrl":"","documentFormat":"PDF"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertFailure(result)
@@ -201,7 +265,7 @@ class LocalLlmSmartSummarizerTest {
     @Test
     fun unknownDocumentFormatSucceedsWhenExplicitlyReturned() = runTest {
         val result = summarizerReturning(
-            """{"topicId":"topic-ai","contentType":"WEB_ARTICLE","tag":"网页","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"UNKNOWN"}""",
+            """{"topicId":"topic-ai","contentType":"WEB_ARTICLE","title":"Title","summary":"Summary","sourceUrl":"","documentFormat":"UNKNOWN"}""",
         ).summarize(SmartSummarizeRequest("content"), topics)
 
         assertTrue(result is SmartSummarizeResult.Success)

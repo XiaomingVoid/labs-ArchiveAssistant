@@ -3,8 +3,14 @@ package com.lyihub.archiveassistant.state
 import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import com.lyihub.archiveassistant.data.ModelDownloadManager
 import com.lyihub.archiveassistant.data.AppDataRepository
+import com.lyihub.archiveassistant.data.DocumentContentExtractionResult
+import com.lyihub.archiveassistant.data.DocumentContentExtractor
+import com.lyihub.archiveassistant.data.ExtractedDocumentContent
+import com.lyihub.archiveassistant.data.FetchedWebPageContent
+import com.lyihub.archiveassistant.data.ModelDownloadManager
+import com.lyihub.archiveassistant.data.WebPageContentFetcher
+import com.lyihub.archiveassistant.data.WebPageContentFetchResult
 import com.lyihub.archiveassistant.domain.AiEngineSettings
 import com.lyihub.archiveassistant.domain.AiEngineType
 import com.lyihub.archiveassistant.domain.AppPane
@@ -137,7 +143,6 @@ class ArchiveAssistantStateStoreTest {
             SmartSummarizeResult.Success(
                 topicId = "topic-ui-inspiration",
                 contentType = ContentType.IMAGE_SCREENSHOT,
-                tag = "截图",
                 title = "Settings panel",
                 summary = "UX screenshot image of a settings panel",
                 documentFormat = DocumentFormat.UNKNOWN,
@@ -148,6 +153,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("UX screenshot image of a settings panel")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         val newItem = store.state.items.last()
         assertEquals(initialItemCount + 1, store.state.items.size)
@@ -169,7 +175,6 @@ class ArchiveAssistantStateStoreTest {
             SmartSummarizeResult.Success(
                 topicId = "topic-ui-inspiration",
                 contentType = ContentType.WEB_ARTICLE,
-                tag = "AI摘要",
                 title = "智能摘要标题",
                 summary = "智能摘要内容",
                 documentFormat = DocumentFormat.UNKNOWN,
@@ -180,8 +185,9 @@ class ArchiveAssistantStateStoreTest {
         val initialItemCount = store.state.items.size
         val topicBefore = store.state.topics.first { it.id == "topic-ui-inspiration" }
 
-        store.updateParserInput("Original raw text https://example.com/raw")
+        store.updateParserInput("Original raw text without URL")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         val newItem = store.state.items.last()
         assertEquals(1, summarizer.callCount)
@@ -189,10 +195,9 @@ class ArchiveAssistantStateStoreTest {
         assertEquals("item-classified-6", newItem.id)
         assertEquals("topic-ui-inspiration", newItem.topicId)
         assertEquals(ContentType.WEB_ARTICLE, newItem.contentType)
-        assertEquals("AI摘要", newItem.tag)
         assertEquals("智能摘要标题", newItem.title)
         assertEquals("智能摘要内容", newItem.summary)
-        assertEquals("Original raw text https://example.com/raw", newItem.fullText)
+        assertEquals("Original raw text without URL", newItem.fullText)
         assertEquals("https://example.com/smart", newItem.sourceUrl)
         assertEquals(DocumentFormat.UNKNOWN, newItem.documentFormat)
         assertEquals("", store.state.parserInput)
@@ -203,6 +208,115 @@ class ArchiveAssistantStateStoreTest {
 
         val topicAfter = store.state.topics.first { it.id == "topic-ui-inspiration" }
         assertTrue(topicAfter.updatedAtEpochMillis > topicBefore.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun submitParserInput_whenUrlFetchSucceeds_fetchesBeforeSummarizeAndPassesContext() {
+        val events = mutableListOf<String>()
+        val fetcher = FakeWebPageContentFetcher(
+            result = WebPageContentFetchResult.Success(fetchedContent()),
+            events = events,
+        )
+        val summarizer = FakeSmartSummarizer(
+            result = successResult(title = "Fetched summary"),
+            events = events,
+        )
+        val store = smartStore(summarizer, fetcher)
+
+        store.updateParserInput("https://example.com/article")
+        store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        val request = summarizer.requests.single()
+        assertEquals(listOf("fetch", "summarize"), events)
+        assertEquals(1, fetcher.callCount)
+        assertEquals("https://example.com/article", fetcher.originalUrls.single())
+        assertEquals("https://example.com/article", fetcher.fetchUrls.single())
+        assertEquals("https://example.com/article", request.rawText)
+        assertEquals("https://example.com/article", request.sourceUrl)
+        assertEquals("Fetched Page Title", request.sourceTitle)
+        assertEquals("https://example.com/article", request.fetchedWebContext?.originalUrl)
+        assertEquals("Fetched Page Title", request.fetchedWebContext?.title)
+        assertEquals("Fetched page description", request.fetchedWebContext?.description)
+        assertEquals("Fetched body text for the summarizer", request.fetchedWebContext?.bodyText)
+        assertTrue(store.state.items.any { it.title == "Fetched summary" })
+    }
+
+    @Test
+    fun submitParserInput_whenEmbeddedUrlFetchSucceeds_passesOriginalInputAndFetchedContext() {
+        val fetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Success(fetchedContent()))
+        val summarizer = FakeSmartSummarizer(successResult(title = "Embedded URL summary"))
+        val store = smartStore(summarizer, fetcher)
+
+        store.updateParserInput("read this https://example.com/a")
+        store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        val request = summarizer.requests.single()
+        assertEquals(1, fetcher.callCount)
+        assertEquals("https://example.com/a", fetcher.originalUrls.single())
+        assertEquals("https://example.com/a", fetcher.fetchUrls.single())
+        assertEquals("read this https://example.com/a", request.rawText)
+        assertEquals("https://example.com/a", request.sourceUrl)
+        assertEquals("Fetched Page Title", request.sourceTitle)
+        assertEquals("Fetched body text for the summarizer", request.fetchedWebContext?.bodyText)
+        assertTrue(store.state.items.any { it.title == "Embedded URL summary" })
+    }
+
+    @Test
+    fun submitParserInput_whenUrlFetchFails_skipsSummarizerAndCreatesNoItem() {
+        val fetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("网页抓取超时，请稍后重试"))
+        val summarizer = FakeSmartSummarizer(successResult(title = "Should not summarize"))
+        val store = smartStore(summarizer, fetcher)
+        val initialItemCount = store.state.items.size
+
+        store.updateParserInput("https://example.com/slow")
+        store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        assertEquals(1, fetcher.callCount)
+        assertEquals(0, summarizer.callCount)
+        assertEquals(initialItemCount, store.state.items.size)
+        assertEquals("网页内容获取失败：网页抓取超时，请稍后重试", store.state.smartSummarizationMessage)
+    }
+
+    @Test
+    fun submitParserInput_whenLocalUrlFetchFails_doesNotEnterInferencing() {
+        val fetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("网页内容为空"))
+        val inferenceConnection = FakeLocalInferenceGateway(engine = null)
+        val store = localStore(
+            inferenceConnection = inferenceConnection,
+            localModelStateProvider = { LocalModelState(status = LocalModelStatus.READY) },
+            webPageContentFetcher = fetcher,
+        )
+        store.updateAiSettings(AiEngineSettings(engineType = AiEngineType.LOCAL_MODEL))
+        val initialItemCount = store.state.items.size
+
+        store.updateParserInput("https://example.com/empty")
+        store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        assertEquals(1, fetcher.callCount)
+        assertEquals(0, inferenceConnection.summarizeCallCount)
+        assertFalse(store.state.localModelState.status == LocalModelStatus.INFERENCING)
+        assertEquals(initialItemCount, store.state.items.size)
+        assertEquals("网页内容获取失败：网页内容为空", store.state.smartSummarizationMessage)
+    }
+
+    @Test
+    fun submitParserInput_whenNonUrlSmartSummary_doesNotCallFetcher() {
+        val fetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("should not fetch"))
+        val summarizer = FakeSmartSummarizer(successResult(title = "Plain summary"))
+        val store = smartStore(summarizer, fetcher)
+
+        store.updateParserInput("plain note without URL")
+        store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        assertEquals(0, fetcher.callCount)
+        assertEquals(1, summarizer.callCount)
+        assertNull(summarizer.requests.single().fetchedWebContext)
+        assertTrue(store.state.items.any { it.title == "Plain summary" })
     }
 
     @Test
@@ -228,6 +342,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("first raw input")
         store.submitParserInput()
+        waitUntil { store.state.isSmartSummarizing }
         assertTrue(store.state.isSmartSummarizing)
 
         store.updateParserInput("second raw input")
@@ -249,6 +364,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("raw input")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertEquals(1, summarizer.callCount)
         assertEquals(SampleKnowledgeData.items, store.state.items)
@@ -265,6 +381,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("UX screenshot image of a settings panel")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertEquals(1, summarizer.callCount)
         assertEquals(SampleKnowledgeData.items, store.state.items)
@@ -279,6 +396,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("raw input")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertEquals(1, summarizer.callCount)
         assertEquals(SampleKnowledgeData.items, store.state.items)
@@ -508,6 +626,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.updateParserInput("人类学笔记")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         val recent = store.state.recentTopics
         assertEquals(topicId, recent.first().id)
@@ -793,6 +912,7 @@ class ArchiveAssistantStateStoreTest {
         assertTrue(store.state.showClipboardDialog)
 
         store.acceptClipboardAndSummarize()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertFalse(store.state.showClipboardDialog)
         assertNull(store.state.clipboardSourceLabel)
@@ -808,6 +928,7 @@ class ArchiveAssistantStateStoreTest {
         store.updateParserInput("main input should not be used")
         store.showClipboard(content = "clipboard raw content", sourceLabel = "剪切板")
         store.acceptClipboardAndSummarize()
+        waitUntil { !store.state.isSmartSummarizing }
 
         val newItem = store.state.items.last()
         assertEquals(1, summarizer.callCount)
@@ -826,6 +947,7 @@ class ArchiveAssistantStateStoreTest {
 
         store.showClipboard(content = "clipboard raw content", sourceLabel = "剪切板")
         store.acceptClipboardAndSummarize()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertEquals(1, summarizer.callCount)
         assertEquals(SampleKnowledgeData.items, store.state.items)
@@ -891,22 +1013,28 @@ class ArchiveAssistantStateStoreTest {
     }
 
     @Test
-    fun acceptClipboardAndSummarize_withNullContent_doesNotReleasePermission() {
-        val store = ArchiveAssistantStateStore()
+    fun acceptClipboardAndSummarize_withDocumentUriOnly_usesFileNameFallback() {
+        val summarizer = FakeSmartSummarizer(successResult(title = "DOCX summary"))
+        val store = smartStore(summarizer)
         var released = false
         store.releaseDragPermission = { released = true }
 
         store.showClipboard(
             content = "",
-            sourceUri = "content://test/image.png",
-            sourceContentType = ContentType.IMAGE_SCREENSHOT,
+            sourceUri = "content://test/drag.docx",
+            sourceContentType = ContentType.DOCUMENT,
+            sourceDocumentFormat = DocumentFormat.DOCX,
+            sourceFileName = "drag.docx",
             sourceLabel = "拖拽",
         )
         store.acceptClipboardAndSummarize()
+        waitUntil { summarizer.callCount == 1 && !store.state.isSmartSummarizing }
 
-        assertFalse(released)
-        assertNotNull(store.releaseDragPermission)
-        assertTrue(store.state.showClipboardDialog)
+        assertTrue(released)
+        assertNull(store.releaseDragPermission)
+        assertFalse(store.state.showClipboardDialog)
+        assertEquals("drag.docx", summarizer.requests.single().rawText)
+        assertEquals(1, store.state.items.count { it.title == "DOCX summary" })
     }
 
     @Test
@@ -970,6 +1098,7 @@ class ArchiveAssistantStateStoreTest {
         store.updateAiSettings(AiEngineSettings(engineType = AiEngineType.LOCAL_MODEL))
         store.updateParserInput("local inference note")
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
         assertEquals(LocalModelStatus.READY, store.state.localModelState.status)
 
         store.stopModel()
@@ -1134,6 +1263,7 @@ class ArchiveAssistantStateStoreTest {
         store.submitParserInput()
 
         assertTrue(store.state.isSmartSummarizing || inferenceConnection.summarizeCallCount == 0)
+        waitUntil { inferenceConnection.summarizeCallCount == 1 }
         gate.complete(successResult(title = "Async local summary"))
         waitUntil { !store.state.isSmartSummarizing }
         assertTrue(store.state.items.any { it.title == "Async local summary" })
@@ -1153,6 +1283,7 @@ class ArchiveAssistantStateStoreTest {
         store.updateParserInput("remote inference note")
 
         store.submitParserInput()
+        waitUntil { !store.state.isSmartSummarizing }
 
         assertEquals(1, factoryCallCount)
         assertEquals(1, summarizer.callCount)
@@ -1213,15 +1344,21 @@ class ArchiveAssistantStateStoreTest {
         inferenceConnection: FakeLocalInferenceGateway = FakeLocalInferenceGateway(FakeLocalLlmEngine()),
         modelFileExists: Boolean = false,
         localModelStateProvider: (() -> LocalModelState)? = null,
+        webPageContentFetcher: WebPageContentFetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("unexpected fetch")),
     ) = ArchiveAssistantStateStore(
         modelDownloadManager = downloadManager,
         inferenceConnection = inferenceConnection,
         localModelFileExists = { modelFileExists },
         localModelStateProvider = localModelStateProvider,
+        webPageContentFetcher = webPageContentFetcher,
     )
 
-    private fun smartStore(summarizer: SmartSummarizer) = ArchiveAssistantStateStore(
+    private fun smartStore(
+        summarizer: SmartSummarizer,
+        webPageContentFetcher: WebPageContentFetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("unexpected fetch")),
+    ) = ArchiveAssistantStateStore(
         smartSummarizer = summarizer,
+        webPageContentFetcher = webPageContentFetcher,
     )
 
     private fun smartStore(result: SmartSummarizeResult) = smartStore(FakeSmartSummarizer(result))
@@ -1232,14 +1369,26 @@ class ArchiveAssistantStateStoreTest {
     ) = SmartSummarizeResult.Success(
         topicId = topicId,
         contentType = ContentType.DOCUMENT,
-        tag = "智能摘要",
         title = title,
         summary = "Smart summary",
         documentFormat = DocumentFormat.MARKDOWN,
     )
 
+    private fun fetchedContent(
+        originalUrl: String = "https://example.com/article",
+        fetchUrl: String = originalUrl,
+    ) = FetchedWebPageContent(
+        originalUrl = originalUrl,
+        fetchUrl = fetchUrl,
+        resolvedUrl = fetchUrl,
+        title = "Fetched Page Title",
+        description = "Fetched page description",
+        bodyText = "Fetched body text for the summarizer",
+        contentType = "text/html",
+    )
+
     private fun localSmartJson() = """
-        {"topicId":"${SampleKnowledgeData.DefaultTopicId}","contentType":"DOCUMENT","tag":"本地摘要","title":"本地摘要标题","summary":"本地摘要内容","sourceUrl":"","documentFormat":"MARKDOWN"}
+        {"topicId":"${SampleKnowledgeData.DefaultTopicId}","contentType":"DOCUMENT","title":"本地摘要标题","summary":"本地摘要内容","sourceUrl":"","documentFormat":"MARKDOWN"}
     """.trimIndent()
 
     private fun waitUntil(assertion: () -> Boolean) {
@@ -1339,6 +1488,7 @@ class ArchiveAssistantStateStoreTest {
     private class FakeSmartSummarizer(
         private val result: SmartSummarizeResult? = null,
         private val gate: CompletableDeferred<SmartSummarizeResult>? = null,
+        private val events: MutableList<String>? = null,
     ) : SmartSummarizer {
         val requests = mutableListOf<SmartSummarizeRequest>()
         var callCount = 0
@@ -1348,9 +1498,46 @@ class ArchiveAssistantStateStoreTest {
             topics: List<com.lyihub.archiveassistant.domain.Topic>,
             existingItems: List<com.lyihub.archiveassistant.domain.KnowledgeItem>,
         ): SmartSummarizeResult {
+            events?.add("summarize")
             callCount++
             requests += request
             return gate?.await() ?: result ?: SmartSummarizeResult.Failure("未配置测试结果")
+        }
+    }
+
+    private class FakeWebPageContentFetcher(
+        private val result: WebPageContentFetchResult,
+        private val events: MutableList<String>? = null,
+    ) : WebPageContentFetcher {
+        val originalUrls = mutableListOf<String>()
+        val fetchUrls = mutableListOf<String>()
+        var callCount = 0
+
+        override suspend fun fetch(originalUrl: String, fetchUrl: String): WebPageContentFetchResult {
+            events?.add("fetch")
+            callCount++
+            originalUrls += originalUrl
+            fetchUrls += fetchUrl
+            return result
+        }
+    }
+
+    private class FakeDocumentContentExtractor(
+        private val result: DocumentContentExtractionResult,
+    ) : DocumentContentExtractor {
+        val uris = mutableListOf<Uri>()
+        val formats = mutableListOf<DocumentFormat>()
+        val fileNames = mutableListOf<String?>()
+
+        override suspend fun extract(
+            uri: Uri,
+            format: DocumentFormat,
+            fileName: String?,
+        ): DocumentContentExtractionResult {
+            uris += uri
+            formats += format
+            fileNames += fileName
+            return result
         }
     }
 
