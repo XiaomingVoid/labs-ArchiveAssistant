@@ -49,7 +49,6 @@ import com.lyihub.archiveassistant.ui.layout.shouldShowTwoPanes
 import com.lyihub.archiveassistant.ui.screens.AddItemDialog
 import com.lyihub.archiveassistant.ui.screens.CardModal
 import com.lyihub.archiveassistant.ui.screens.ClipboardDialog
-import com.lyihub.archiveassistant.ui.screens.CourtDashboardPane
 import com.lyihub.archiveassistant.ui.screens.DeleteItemConfirmDialog
 import com.lyihub.archiveassistant.ui.screens.DetailPane
 import com.lyihub.archiveassistant.ui.screens.HomePane
@@ -768,10 +767,7 @@ private fun TwoPaneLayout(
                     isBenchmarkRunning = state.isBenchmarkRunning,
                 )
 
-                AppPane.TOPICS -> CourtDashboardPane(
-                    topics = state.topics,
-                    itemsByTopic = state.itemsByTopic,
-                )
+                AppPane.TOPICS -> EmptyDetailPane()
 
                 AppPane.MANAGE -> ManagePane(
                     topics = state.topics,
@@ -792,10 +788,7 @@ private fun TwoPaneLayout(
                     deleteConfirmTopicId = state.deleteConfirmTopicId,
                 )
 
-                AppPane.CLASSIFICATION_REVIEW -> CourtDashboardPane(
-                    topics = state.topics,
-                    itemsByTopic = state.itemsByTopic,
-                )
+                AppPane.CLASSIFICATION_REVIEW -> EmptyDetailPane()
 
                 AppPane.CARD_DETAIL -> {
                     val topic = state.selectedTopic
@@ -813,6 +806,27 @@ private fun TwoPaneLayout(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyDetailPane() {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("empty-detail-pane"),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "选择主题查看",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
