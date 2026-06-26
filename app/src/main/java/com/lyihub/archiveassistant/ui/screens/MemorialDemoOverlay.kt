@@ -1077,48 +1077,98 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         val remaining = (TOTAL_PENDING_MEMORIALS - coverStackIndex - 1).coerceAtLeast(0)
         val stackCount = min(remaining, 5)
         val isVerdictLeaving = coverFinalStamp != null || currentStamp != null
-        for (level in stackCount downTo 1) {
-            val lift = if (
-                level == 1 &&
-                isVerdictLeaving &&
-                coverStackIndex < TOTAL_PENDING_MEMORIALS - 1
-            ) {
-                smoothStep(0f, 0.72f, coverStackLiftProgress.coerceIn(0f, 1f))
-            } else {
-                0f
-            }
-            val offsetX = stackOffsetX(level) * (1f - lift)
-            val offsetY = stackOffsetY(level) * (1f - lift)
-            val scale = lerp(stackScale(level), 1f, lift)
-            val rotation = stackRotation(level) * (1f - lift)
+        val stackShiftProgress = if (isVerdictLeaving && coverStackIndex < TOTAL_PENDING_MEMORIALS - 1) {
+            smoothStep(0f, 0.72f, coverStackLiftProgress.coerceIn(0f, 1f))
+        } else {
+            0f
+        }
+        val extraBottomLevel = if (isVerdictLeaving && remaining > stackCount) 1 else 0
+        val renderedStackCount = stackCount + extraBottomLevel
+        for (level in renderedStackCount downTo 1) {
+            val nextLevel = (level - 1).coerceAtLeast(0)
+            val sourceOffsetX = stackOffsetX(level)
+            val sourceOffsetY = stackOffsetY(level)
+            val sourceScale = stackScale(level)
+            val sourceRotation = stackRotation(level)
+            val targetOffsetX = stackOffsetX(nextLevel)
+            val targetOffsetY = stackOffsetY(nextLevel)
+            val targetScale = stackScale(nextLevel)
+            val targetRotation = stackRotation(nextLevel)
+            val offsetX = lerp(sourceOffsetX, targetOffsetX, stackShiftProgress)
+            val offsetY = lerp(sourceOffsetY, targetOffsetY, stackShiftProgress)
+            val scale = lerp(sourceScale, targetScale, stackShiftProgress)
+            val rotation = lerp(sourceRotation, targetRotation, stackShiftProgress)
             val stackRect = RectF(
                 coverLeft + offsetX,
                 cover.top + offsetY,
                 coverLeft + offsetX + cover.width,
                 cover.top + offsetY + cover.height,
             )
+            val alpha = if (extraBottomLevel == 1 && level == renderedStackCount) {
+                smoothStep(0.12f, 0.82f, stackShiftProgress)
+            } else {
+                1f
+            }
             canvas.save()
             canvas.rotate(rotation, stackRect.centerX(), stackRect.centerY())
             canvas.scale(scale, scale, stackRect.centerX(), stackRect.centerY())
-            drawArticle(
+            drawStackCoverArticle(
                 canvas = canvas,
-                article = cover,
+                cover = cover,
                 left = stackRect.left,
                 coverSequenceIndex = coverStackIndex + level,
-                transform = FoldTransform(
-                    rotationY = 0f,
-                    pivotX = stackRect.right,
-                    shadingAlpha = 0f,
-                    edgeShadowProgress = 0f,
-                    visible = true,
-                ),
+                alpha = alpha,
             )
             canvas.restore()
         }
     }
 
+    private fun drawStackCoverArticle(
+        canvas: Canvas,
+        cover: ArticleLayout,
+        left: Float,
+        coverSequenceIndex: Int,
+        alpha: Float,
+    ) {
+        val clampedAlpha = alpha.coerceIn(0f, 1f)
+        if (clampedAlpha <= 0.01f) return
+        val drawLayer = {
+            drawArticle(
+                canvas = canvas,
+                article = cover,
+                left = left,
+                coverSequenceIndex = coverSequenceIndex,
+                transform = FoldTransform(
+                    rotationY = 0f,
+                    pivotX = left + cover.width,
+                    shadingAlpha = 0f,
+                    edgeShadowProgress = 0f,
+                    visible = true,
+                ),
+            )
+        }
+        if (clampedAlpha >= 0.995f) {
+            drawLayer()
+            return
+        }
+
+        alphaLayerRect.set(
+            left - dp(16f),
+            cover.top - dp(16f),
+            left + cover.width + dp(16f),
+            cover.top + cover.height + dp(16f),
+        )
+        val previousAlpha = layerAlphaPaint.alpha
+        layerAlphaPaint.alpha = (255f * clampedAlpha).roundToInt().coerceIn(0, 255)
+        val layer = canvas.saveLayer(alphaLayerRect, layerAlphaPaint)
+        drawLayer()
+        canvas.restoreToCount(layer)
+        layerAlphaPaint.alpha = previousAlpha
+    }
+
     private fun stackOffsetX(level: Int): Float {
         return when (level) {
+            0 -> 0f
             1 -> dp(8f)
             2 -> -dp(7f)
             3 -> dp(13f)
@@ -1128,15 +1178,18 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     }
 
     private fun stackOffsetY(level: Int): Float {
+        if (level <= 0) return 0f
         return dp(7f + level * 6.5f)
     }
 
     private fun stackScale(level: Int): Float {
+        if (level <= 0) return 1f
         return 1f - level * 0.014f
     }
 
     private fun stackRotation(level: Int): Float {
         return when (level) {
+            0 -> 0f
             1 -> -1.1f
             2 -> 1.35f
             3 -> -0.8f
