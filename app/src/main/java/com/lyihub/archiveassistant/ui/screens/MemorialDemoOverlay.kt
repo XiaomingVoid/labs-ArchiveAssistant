@@ -321,6 +321,10 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     private val buttonAspectRatio: Float = buttonTexture?.let { texture ->
         texture.width.toFloat() / texture.height.toFloat()
     } ?: (413f / 141f)
+    private val completionTexture: Bitmap? = BitmapFactory.decodeResource(
+        resources,
+        R.drawable.memorial_completion_bg,
+    )
     private val coverCornerTexture: Bitmap? = BitmapFactory.decodeResource(
         resources,
         R.drawable.memorial_cover_corner,
@@ -345,6 +349,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     private val buttonImagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         alpha = 232
     }
+    private val completionImagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val coverCornerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val dashedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -444,10 +449,6 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         style = Paint.Style.STROKE
         strokeWidth = 1.2f * displayDensity
         color = AndroidColor.argb(178, AndroidColor.red(IMPERIAL_GOLD), AndroidColor.green(IMPERIAL_GOLD), AndroidColor.blue(IMPERIAL_GOLD))
-    }
-    private val completionCircleStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = IMPERIAL_GOLD
     }
     private val layerAlphaPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val toolbarTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1057,12 +1058,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
 
     private fun coverControlsAlpha(): Float {
         return when (stage) {
-            MemorialStage.CoverOnly -> when {
-                coverStackAnimator != null -> smoothStep(0.28f, 0.82f, coverStackLiftProgress)
-                coverFinalStamp != null || currentStamp != null ->
-                    1f - smoothStep(0.18f, 0.82f, max(coverFinalStampStrength, stampProgress))
-                else -> 1f
-            }
+            MemorialStage.CoverOnly -> 1f
             MemorialStage.Opening,
             MemorialStage.Closing -> 1f - smoothStep(0.04f, 0.24f, openProgress)
             else -> 0f
@@ -1381,21 +1377,14 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         layerAlphaPaint.alpha = (255f * alpha.coerceIn(0f, 1f)).roundToInt().coerceIn(0, 255)
         val layer = canvas.saveLayer(rect, layerAlphaPaint)
 
-        drawPaperPanel(
+        completionTexture?.let { texture ->
+            canvas.drawBitmap(texture, null, rect, completionImagePaint)
+        } ?: drawPaperPanel(
             canvas = canvas,
             rect = rect,
             pageIndex = 61,
             clippedCircle = true,
         )
-        val frameRect = RectF(rect).apply { inset(dp(18f), dp(18f)) }
-        completionCircleStrokePaint.strokeWidth = dp(1.7f)
-        completionCircleStrokePaint.alpha = 180
-        canvas.drawOval(frameRect, completionCircleStrokePaint)
-        frameRect.inset(dp(13f), dp(13f))
-        completionCircleStrokePaint.strokeWidth = dp(0.9f)
-        completionCircleStrokePaint.alpha = 118
-        canvas.drawOval(frameRect, completionCircleStrokePaint)
-        completionCircleStrokePaint.alpha = 255
 
         val completionTitlePaint = TextPaint(titlePaint).apply {
             textSize = sp(33f)
