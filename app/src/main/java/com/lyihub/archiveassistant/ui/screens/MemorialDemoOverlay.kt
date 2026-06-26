@@ -962,11 +962,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         val cover = articles.firstOrNull() ?: return
         val coverLeft = coverStackLeft(cover)
         drawCoverStackLayer(canvas, coverStackAlpha())
-        val rotation = if (coverFinalStampFromButton) {
-            0f
-        } else {
-            (coverDragX / max(1f, foldRight - foldLeft)).coerceIn(-1f, 1f) * 10f
-        }
+        val rotation = (coverDragX / max(1f, foldRight - foldLeft)).coerceIn(-1f, 1f) * 10f
         val isRevealingNextCover = currentStamp == null &&
             coverFinalStamp == null &&
             coverDragX == 0f &&
@@ -3211,64 +3207,20 @@ private class FoldScrollNativeView(context: Context) : View(context) {
                 stampProgress = 0f
                 hideReadingControlsDuringClose = false
                 clearAttachedCoverStamp()
-                startStampedCoverExit(stamp)
-            },
-        )
-    }
-
-    private fun startStampedCoverExit(stamp: MemorialStamp) {
-        val targetX = when (stamp) {
-            MemorialStamp.Like -> width.toFloat() + articleWidth
-            MemorialStamp.Dislike -> -width.toFloat() - articleWidth
-            else -> 0f
-        }
-        coverSwipeAnimator?.cancel()
-        coverDragX = 0f
-        coverDragY = 0f
-        coverPreviewStamp = stamp
-        coverPreviewStampStrength = 1f
-        coverPreviewStampTargetStrength = 1f
-        coverFinalStamp = stamp
-        coverFinalStampFromButton = true
-        coverFinalStampStrength = 1f
-        coverStackLiftProgress = 0f
-        coverSwipeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = COVER_VERDICT_DURATION_MS
-            interpolator = LinearInterpolator()
-            addUpdateListener { animator ->
-                val moveT = smoothStep(0f, 1f, animator.animatedValue as Float)
-                coverDragX = lerp(0f, targetX, moveT)
                 coverDragY = 0f
-                coverFinalStampStrength = 1f
+                coverDragX = 0f
+                coverPreviewStamp = stamp
                 coverPreviewStampStrength = 1f
                 coverPreviewStampTargetStrength = 1f
-                coverStackLiftProgress = 0f
-                invalidate()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                private var canceled = false
-
-                override fun onAnimationCancel(animation: Animator) {
-                    canceled = true
-                }
-
-                override fun onAnimationEnd(animation: Animator) {
-                    if (coverSwipeAnimator == animation) {
-                        coverSwipeAnimator = null
-                    }
-                    if (!canceled) {
-                        coverFinalStamp = null
-                        coverFinalStampFromButton = false
-                        coverFinalStampStrength = 0f
-                        coverPreviewStamp = null
-                        coverPreviewStampStrength = 0f
-                        coverPreviewStampTargetStrength = 0f
-                        advanceAfterVerdict()
-                    }
-                }
-            })
-            start()
-        }
+                startCoverVerdict(
+                    stamp = stamp,
+                    dx = if (stamp == MemorialStamp.Like) dp(96f) else -dp(96f),
+                    verticalDirection = 0f,
+                    fromButton = true,
+                    motion = CoverVerdictMotion.Gesture,
+                )
+            },
+        )
     }
 
     private fun startStamp(stamp: MemorialStamp, completion: StampCompletion) {
