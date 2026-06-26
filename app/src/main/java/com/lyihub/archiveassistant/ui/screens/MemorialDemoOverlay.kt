@@ -123,6 +123,11 @@ private enum class StampCompletion {
     AutoDismiss,
 }
 
+private enum class CoverVerdictMotion {
+    Gesture,
+    Button,
+}
+
 private val STAMP_RED = AndroidColor.rgb(178, 37, 31)
 private val STAMP_PAPER = AndroidColor.rgb(247, 240, 219)
 private val IMPERIAL_GOLD = AndroidColor.rgb(166, 126, 45)
@@ -1443,16 +1448,26 @@ private class FoldScrollNativeView(context: Context) : View(context) {
 
         val cx = when (stamp) {
             coverFinalStamp -> if (coverFinalStampFromButton) {
-                coverLeft + cover.width * 0.5f
+                when (stamp) {
+                    MemorialStamp.Approve,
+                    MemorialStamp.Like -> coverLeft + cover.width * (1f / 3f)
+                    MemorialStamp.Reject,
+                    MemorialStamp.Dislike -> coverLeft + cover.width * (2f / 3f)
+                    else -> coverLeft + cover.width * 0.5f
+                }
             } else {
                 when (stamp) {
-                    MemorialStamp.Approve -> coverLeft + cover.width * (1f / 3f)
-                    MemorialStamp.Reject -> coverLeft + cover.width * (2f / 3f)
+                    MemorialStamp.Approve,
+                    MemorialStamp.Like -> coverLeft + cover.width * (1f / 3f)
+                    MemorialStamp.Reject,
+                    MemorialStamp.Dislike -> coverLeft + cover.width * (2f / 3f)
                     else -> coverLeft + cover.width * 0.5f
                 }
             }
-            MemorialStamp.Approve -> coverLeft + cover.width * (1f / 3f)
-            MemorialStamp.Reject -> coverLeft + cover.width * (2f / 3f)
+            MemorialStamp.Approve,
+            MemorialStamp.Like -> coverLeft + cover.width * (1f / 3f)
+            MemorialStamp.Reject,
+            MemorialStamp.Dislike -> coverLeft + cover.width * (2f / 3f)
             else -> coverLeft + cover.width * 0.5f
         }
         val cy = when (stamp) {
@@ -1461,13 +1476,17 @@ private class FoldScrollNativeView(context: Context) : View(context) {
             } else {
                 when (stamp) {
                     MemorialStamp.Approve,
-                    MemorialStamp.Reject -> cover.top + cover.height * 0.76f
+                    MemorialStamp.Reject,
+                    MemorialStamp.Like,
+                    MemorialStamp.Dislike -> cover.top + cover.height * 0.76f
                     MemorialStamp.Keep -> cover.top + cover.height * 0.72f
                     else -> cover.top + cover.height * 0.55f
                 }
             }
             MemorialStamp.Approve,
-            MemorialStamp.Reject -> cover.top + cover.height * 0.76f
+            MemorialStamp.Reject,
+            MemorialStamp.Like,
+            MemorialStamp.Dislike -> cover.top + cover.height * 0.76f
             MemorialStamp.Keep -> cover.top + cover.height * 0.72f
             else -> cover.top + cover.height * 0.55f
         }
@@ -2828,6 +2847,7 @@ private class FoldScrollNativeView(context: Context) : View(context) {
         dx: Float,
         verticalDirection: Float,
         fromButton: Boolean = false,
+        motion: CoverVerdictMotion = if (fromButton) CoverVerdictMotion.Button else CoverVerdictMotion.Gesture,
     ) {
         val initialStampStrength = coverPreviewStampStrength.coerceIn(0f, 1f)
         coverPreviewStamp = stamp
@@ -2855,8 +2875,14 @@ private class FoldScrollNativeView(context: Context) : View(context) {
             interpolator = LinearInterpolator()
             addUpdateListener { animator ->
                 val t = animator.animatedValue as Float
-                val stampT = lerp(initialStampStrength, 1f, smoothStep(0f, 0.333f, t))
-                val moveT = smoothStep(0.333f, 1f, t)
+                val stampT = when (motion) {
+                    CoverVerdictMotion.Button -> lerp(initialStampStrength, 1f, smoothStep(0f, 0.333f, t))
+                    CoverVerdictMotion.Gesture -> lerp(initialStampStrength, 1f, smoothStep(0f, 0.12f, t))
+                }
+                val moveT = when (motion) {
+                    CoverVerdictMotion.Button -> smoothStep(0.333f, 1f, t)
+                    CoverVerdictMotion.Gesture -> smoothStep(0f, 1f, t)
+                }
                 coverFinalStampStrength = stampT
                 coverPreviewStampStrength = stampT
                 coverPreviewStampTargetStrength = stampT
@@ -3087,9 +3113,41 @@ private class FoldScrollNativeView(context: Context) : View(context) {
     }
 
     private fun startStampAndDismiss(stamp: MemorialStamp) {
-        if (currentStamp != null) return
-        returnToFirstSpread {
-            startStamp(stamp, StampCompletion.ResetCover)
+        if (currentStamp != null || coverSwipeAnimator != null || coverStackAnimator != null) return
+        when (stamp) {
+            MemorialStamp.Like,
+            MemorialStamp.Dislike -> returnToCoverForVerdict {
+                val dx = if (stamp == MemorialStamp.Like) dp(96f) else -dp(96f)
+                coverDragX = 0f
+                coverDragY = 0f
+                coverPreviewStamp = stamp
+                coverPreviewStampStrength = 0f
+                coverPreviewStampTargetStrength = 0f
+                startCoverVerdict(
+                    stamp = stamp,
+                    dx = dx,
+                    verticalDirection = 0f,
+                    fromButton = true,
+                    motion = CoverVerdictMotion.Button,
+                )
+            }
+            else -> returnToFirstSpread {
+                startStamp(stamp, StampCompletion.ResetCover)
+            }
+        }
+    }
+
+    private fun returnToCoverForVerdict(onFinished: () -> Unit) {
+        hideReadingControlsDuringClose = true
+        closeWithAnimation {
+            stage = MemorialStage.CoverOnly
+            openProgress = 0f
+            foldScrollX = 0f
+            currentStamp = null
+            stampProgress = 0f
+            hideReadingControlsDuringClose = false
+            invalidate()
+            onFinished()
         }
     }
 
