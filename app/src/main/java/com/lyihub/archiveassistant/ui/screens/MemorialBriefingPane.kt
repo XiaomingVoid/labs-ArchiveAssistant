@@ -43,7 +43,9 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private const val MemorialCoverAspect = 514f / 725f
+private const val MemorialCoverAspect = 10f / 22f
+private const val MemorialWheelItemCount = 24
+private const val MemorialActiveIndex = 0
 
 @Composable
 fun MemorialBriefingPane(
@@ -107,36 +109,52 @@ private fun MemorialCoverWheel(
     BoxWithConstraints(modifier = modifier) {
         val expanded = maxWidth >= 620.dp
         val panelMin = min(maxWidth.value, maxHeight.value).dp
-        val radius = panelMin * if (expanded) 1.26f else 1.18f
-        val centerX = maxWidth * if (expanded) 1.22f else 1.16f
-        val centerY = maxHeight * if (expanded) 1.06f else 1.02f
-        val cardWidth = if (expanded) 110.dp else 84.dp
-        val startDegrees = if (expanded) 205f else 210f
-        val stepDegrees = if (expanded) 10.6f else 12.2f
+        val radius = panelMin * if (expanded) 1.12f else 1.06f
+        val centerX = maxWidth * if (expanded) 1.28f else 1.22f
+        val centerY = maxHeight * if (expanded) 0.98f else 0.94f
+        val cardWidth = if (expanded) 62.dp else 48.dp
+        val startDegrees = 225f
+        val stepDegrees = 360f / MemorialWheelItemCount
 
-        repeat(18) { index ->
+        repeat(MemorialWheelItemCount) { index ->
+            if (index == MemorialActiveIndex) return@repeat
             val degrees = startDegrees + index * stepDegrees
             MemorialWheelCover(
                 resId = coverResources[index % coverResources.size],
+                index = index,
                 degrees = degrees,
                 centerX = centerX,
                 centerY = centerY,
                 radius = radius,
                 width = cardWidth,
+                active = false,
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        MemorialWheelCover(
+            resId = coverResources[MemorialActiveIndex % coverResources.size],
+            index = MemorialActiveIndex,
+            degrees = startDegrees + MemorialActiveIndex * stepDegrees,
+            centerX = centerX,
+            centerY = centerY,
+            radius = radius,
+            width = cardWidth * 1.28f,
+            active = true,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
 @Composable
 private fun MemorialWheelCover(
     resId: Int,
+    index: Int,
     degrees: Float,
     centerX: Dp,
     centerY: Dp,
     radius: Dp,
     width: Dp,
+    active: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val radians = Math.toRadians(degrees.toDouble())
@@ -152,8 +170,12 @@ private fun MemorialWheelCover(
                 .width(width)
                 .aspectRatio(MemorialCoverAspect)
                 .graphicsLayer(rotationZ = degrees + 90f)
-                .background(ImperialParchment, RoundedCornerShape(3.dp))
-                .border(1.dp, ImperialBronze.copy(alpha = 0.58f), RoundedCornerShape(3.dp)),
+                .background(ImperialParchment, RoundedCornerShape(if (active) 5.dp else 3.dp))
+                .border(
+                    width = if (active) 1.4.dp else 0.8.dp,
+                    color = if (active) ImperialCinnabar.copy(alpha = 0.68f) else ImperialBronze.copy(alpha = 0.48f),
+                    shape = RoundedCornerShape(if (active) 5.dp else 3.dp),
+                ),
         ) {
             Image(
                 painter = painterResource(id = resId),
@@ -168,7 +190,7 @@ private fun MemorialWheelCover(
                         Brush.verticalGradient(
                             listOf(
                                 Color.White.copy(alpha = 0.05f),
-                                ImperialUmber.copy(alpha = 0.12f),
+                                ImperialUmber.copy(alpha = if (active) 0.08f else 0.13f),
                             ),
                         ),
                     ),
@@ -176,8 +198,104 @@ private fun MemorialWheelCover(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .border(4.dp, ImperialIvory.copy(alpha = 0.18f), RoundedCornerShape(3.dp)),
+                    .border(
+                        width = if (active) 5.dp else 3.dp,
+                        color = ImperialIvory.copy(alpha = if (active) 0.24f else 0.18f),
+                        shape = RoundedCornerShape(if (active) 5.dp else 3.dp),
+                    ),
             )
+            MemorialCoverLabel(
+                active = active,
+                index = index,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MemorialCoverLabel(
+    active: Boolean,
+    index: Int,
+    modifier: Modifier = Modifier,
+) {
+    val labelWidth = if (active) 0.5f else 0.48f
+    val labelHeight = if (active) 0.58f else 0.56f
+    BoxWithConstraints(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(maxWidth * labelWidth)
+                .aspectRatio(MemorialCoverAspect / labelHeight * labelWidth)
+                .background(ImperialIvory.copy(alpha = if (active) 0.88f else 0.78f), RoundedCornerShape(2.dp))
+                .border(1.dp, ImperialBronze.copy(alpha = if (active) 0.76f else 0.52f), RoundedCornerShape(2.dp))
+                .padding(if (active) 5.dp else 4.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(0.8.dp, ImperialBronze.copy(alpha = if (active) 0.66f else 0.46f), RoundedCornerShape(1.dp)),
+            )
+            Image(
+                painter = painterResource(id = R.drawable.memorial_cover_corner),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(if (active) 11.dp else 8.dp),
+                alpha = if (active) 0.72f else 0.5f,
+                colorFilter = ColorFilter.tint(ImperialCinnabar.copy(alpha = if (active) 0.7f else 0.46f)),
+            )
+            Image(
+                painter = painterResource(id = R.drawable.memorial_cover_corner),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(if (active) 11.dp else 8.dp)
+                    .graphicsLayer(rotationZ = 90f),
+                alpha = if (active) 0.72f else 0.5f,
+                colorFilter = ColorFilter.tint(ImperialCinnabar.copy(alpha = if (active) 0.7f else 0.46f)),
+            )
+            Image(
+                painter = painterResource(id = R.drawable.memorial_cover_corner),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(if (active) 11.dp else 8.dp)
+                    .graphicsLayer(rotationZ = 180f),
+                alpha = if (active) 0.72f else 0.5f,
+                colorFilter = ColorFilter.tint(ImperialCinnabar.copy(alpha = if (active) 0.7f else 0.46f)),
+            )
+            Image(
+                painter = painterResource(id = R.drawable.memorial_cover_corner),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .size(if (active) 11.dp else 8.dp)
+                    .graphicsLayer(rotationZ = 270f),
+                alpha = if (active) 0.72f else 0.5f,
+                colorFilter = ColorFilter.tint(ImperialCinnabar.copy(alpha = if (active) 0.7f else 0.46f)),
+            )
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(if (active) 2.dp else 1.dp),
+            ) {
+                Text(
+                    text = "奏\n章",
+                    style = if (active) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelMedium,
+                    color = ImperialUmber,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    lineHeight = if (active) MaterialTheme.typography.titleMedium.lineHeight else MaterialTheme.typography.labelMedium.lineHeight,
+                )
+                Text(
+                    text = if (active) "甲辰" else ((index % 9) + 1).toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ImperialCinnabar.copy(alpha = if (active) 0.82f else 0.62f),
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
