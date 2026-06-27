@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.domain.KnowledgeItem
@@ -110,7 +113,7 @@ fun HomePane(
     PaneContainer(modifier = modifier.testTag("home-pane")) {
         PaneHeader(
             title = title,
-            subtitle = "外屏总览",
+            subtitle = "一级总览",
             navigationIcon = {
                 IconButton(
                     onClick = onOpenSettings,
@@ -132,47 +135,94 @@ fun HomePane(
             },
         )
         PaneDivider()
-        LazyColumn(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .background(PalaceGreenDeep),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
-                PalaceHero(
-                    totalItems = itemsByTopic.values.sumOf { it.size },
-                    pendingCount = pendingCount(recentTopics, itemsByTopic),
-                    isSmartSummarizing = isSmartSummarizing,
-                )
+            val expandedDashboard = maxWidth >= 720.dp
+            val contentPadding = if (expandedDashboard) {
+                PaddingValues(horizontal = 20.dp, vertical = 16.dp)
+            } else {
+                PaddingValues(horizontal = 14.dp, vertical = 14.dp)
             }
-            item {
-                QuickActionGrid(
-                    parserInput = parserInput,
-                    validationMessage = parserValidationMessage,
-                    smartSummarizationMessage = smartSummarizationMessage,
-                    onInputChanged = onParserInputChanged,
-                    onSubmit = onSubmitParserInput,
-                    onOpenClipboard = onOpenClipboard,
-                    onOpenMemorialDemo = onOpenMemorialDemo,
-                    searchQuery = searchQuery,
-                    onSearchQueryChanged = onSearchQueryChanged,
-                    isSmartSummarizing = isSmartSummarizing,
-                )
-            }
-            item {
-                WorkflowStrip()
-            }
-            item {
-                TopicGrid(
-                    topics = recentTopics,
-                    itemsByTopic = itemsByTopic,
-                    searchQuery = searchQuery,
-                    onTopicSelected = onTopicSelected,
-                    onCreateTopic = onCreateTopic,
-                    onOpenManage = onOpenManage,
-                )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = contentPadding,
+                verticalArrangement = Arrangement.spacedBy(if (expandedDashboard) 12.dp else 10.dp),
+            ) {
+                if (expandedDashboard) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(0.92f),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                PalaceHero(
+                                    totalItems = itemsByTopic.values.sumOf { it.size },
+                                    pendingCount = pendingCount(recentTopics, itemsByTopic),
+                                    isSmartSummarizing = isSmartSummarizing,
+                                )
+                                WorkflowStrip()
+                            }
+                            QuickActionGrid(
+                                parserInput = parserInput,
+                                validationMessage = parserValidationMessage,
+                                smartSummarizationMessage = smartSummarizationMessage,
+                                onInputChanged = onParserInputChanged,
+                                onSubmit = onSubmitParserInput,
+                                onOpenClipboard = onOpenClipboard,
+                                onOpenMemorialDemo = onOpenMemorialDemo,
+                                searchQuery = searchQuery,
+                                onSearchQueryChanged = onSearchQueryChanged,
+                                isSmartSummarizing = isSmartSummarizing,
+                                expandedDashboard = true,
+                                modifier = Modifier.weight(1.08f),
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        PalaceHero(
+                            totalItems = itemsByTopic.values.sumOf { it.size },
+                            pendingCount = pendingCount(recentTopics, itemsByTopic),
+                            isSmartSummarizing = isSmartSummarizing,
+                        )
+                    }
+                    item {
+                        QuickActionGrid(
+                            parserInput = parserInput,
+                            validationMessage = parserValidationMessage,
+                            smartSummarizationMessage = smartSummarizationMessage,
+                            onInputChanged = onParserInputChanged,
+                            onSubmit = onSubmitParserInput,
+                            onOpenClipboard = onOpenClipboard,
+                            onOpenMemorialDemo = onOpenMemorialDemo,
+                            searchQuery = searchQuery,
+                            onSearchQueryChanged = onSearchQueryChanged,
+                            isSmartSummarizing = isSmartSummarizing,
+                            expandedDashboard = false,
+                        )
+                    }
+                    item {
+                        WorkflowStrip()
+                    }
+                }
+                item {
+                    TopicGrid(
+                        topics = recentTopics,
+                        itemsByTopic = itemsByTopic,
+                        searchQuery = searchQuery,
+                        onTopicSelected = onTopicSelected,
+                        onCreateTopic = onCreateTopic,
+                        onOpenManage = onOpenManage,
+                        expandedDashboard = expandedDashboard,
+                    )
+                }
             }
         }
     }
@@ -299,8 +349,13 @@ private fun QuickActionGrid(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     isSmartSummarizing: Boolean,
+    expandedDashboard: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionTile(
                 title = "宣拾遗",
@@ -311,6 +366,7 @@ private fun QuickActionGrid(
                 modifier = Modifier
                     .weight(1f)
                     .testTag("clipboard-button"),
+                height = if (expandedDashboard) 96.dp else null,
             )
             ActionTile(
                 title = if (isSmartSummarizing) "拟录中" else "中书拟题",
@@ -322,6 +378,7 @@ private fun QuickActionGrid(
                 modifier = Modifier
                     .weight(1f)
                     .testTag("classify-button"),
+                height = if (expandedDashboard) 96.dp else null,
             )
         }
         if (onOpenMemorialDemo != null) {
@@ -334,6 +391,7 @@ private fun QuickActionGrid(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("memorial-entry-card"),
+                height = if (expandedDashboard) 96.dp else 92.dp,
             )
         }
         Surface(
@@ -437,10 +495,16 @@ private fun ActionTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    height: Dp? = null,
 ) {
+    val sizeModifier = if (height == null) {
+        Modifier.aspectRatio(1.58f)
+    } else {
+        Modifier.height(height)
+    }
     Surface(
         modifier = modifier
-            .aspectRatio(1.58f)
+            .then(sizeModifier)
             .clickable(enabled = enabled, onClick = onClick),
         shape = PalaceGridShape,
         color = if (enabled) tone.copy(alpha = 0.92f) else Color(0xFFD9D2C4),
@@ -544,8 +608,11 @@ private fun TopicGrid(
     onTopicSelected: (String) -> Unit,
     onCreateTopic: () -> Unit,
     onOpenManage: () -> Unit,
+    expandedDashboard: Boolean,
 ) {
     val folders = dashboardFolders(topics, itemsByTopic)
+    val columnCount = if (expandedDashboard) 3 else 2
+    val cardAspectRatio = if (expandedDashboard) 1.5f else 1.18f
     Column(modifier = Modifier.testTag("recent-topic-list")) {
         Row(
             modifier = Modifier
@@ -584,7 +651,7 @@ private fun TopicGrid(
                 )
             }
         }
-        folders.chunked(2).forEach { row ->
+        folders.chunked(columnCount).forEach { row ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -597,9 +664,10 @@ private fun TopicGrid(
                         searchQuery = searchQuery,
                         onClick = { folder.topic?.let { onTopicSelected(it.id) } },
                         modifier = Modifier.weight(1f),
+                        aspectRatio = cardAspectRatio,
                     )
                 }
-                if (row.size == 1) {
+                repeat(columnCount - row.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -613,6 +681,7 @@ private fun TopicCard(
     searchQuery: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    aspectRatio: Float,
 ) {
     val tone = folder.topic?.let { topicColor(it.iconColor) } ?: PalaceGold
     val cellColor = if (folder.isGoldCell) PalaceGoldBlock else PalaceGreen
@@ -623,7 +692,7 @@ private fun TopicCard(
         shape = PalaceGridShape,
         border = BorderStroke(1.dp, PalaceLine.copy(alpha = 0.58f)),
         modifier = modifier
-            .aspectRatio(1.18f)
+            .aspectRatio(aspectRatio)
             .clickable(enabled = folder.topic != null, onClick = onClick)
             .testTag("topic-card-${folder.id}"),
     ) {

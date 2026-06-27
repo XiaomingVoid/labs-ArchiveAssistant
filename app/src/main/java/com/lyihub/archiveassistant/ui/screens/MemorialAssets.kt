@@ -21,12 +21,26 @@ internal class MemorialAssets(context: Context) {
         R.drawable.memorial_cover_pattern,
     )
 
-    private val coverTextures: List<Bitmap?> = listOf(
-        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_01),
+    private val fixedFirstCoverTexture: Bitmap? = fallbackCoverTexture
+
+    private val generatedCoverTextures: List<Bitmap?> = listOf(
         BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_02),
         BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_03),
         BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_04),
         BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_05),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_06),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_07),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_08),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_09),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_10),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_11),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_12),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_13),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_14),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_15),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_16),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_17),
+        BitmapFactory.decodeResource(resources, R.drawable.memorial_cover_18),
     )
 
     val buttonTexture: Bitmap? = BitmapFactory.decodeResource(
@@ -65,10 +79,13 @@ internal class MemorialAssets(context: Context) {
     )?.let(::buildCinnabarStampTexture)
 
     fun coverTextureFor(coverSequenceIndex: Int): Bitmap? {
-        if (coverSequenceIndex <= 0) return fallbackCoverTexture
-        if (coverTextures.isEmpty()) return fallbackCoverTexture
+        // The first demo memorial intentionally keeps the original approved cover.
+        // Later generated memorials walk the pool before cycling, so covers stay fixed
+        // per sequence and avoid repeats until the available pool is exhausted.
+        if (coverSequenceIndex <= 0) return fixedFirstCoverTexture
+        if (generatedCoverTextures.isEmpty()) return fallbackCoverTexture
         val textureIndex = coverSequenceIndex - 1
-        return coverTextures[positiveModulo(textureIndex, coverTextures.size)] ?: fallbackCoverTexture
+        return generatedCoverTextures[positiveModulo(textureIndex, generatedCoverTextures.size)] ?: fallbackCoverTexture
     }
 
     fun stampTextureFor(stamp: MemorialStamp): Bitmap? {
