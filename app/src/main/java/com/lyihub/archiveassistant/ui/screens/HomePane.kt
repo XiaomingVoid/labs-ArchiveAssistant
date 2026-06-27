@@ -9,16 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -46,8 +43,6 @@ import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.Topic
 import com.lyihub.archiveassistant.ui.components.PaneContainer
-import com.lyihub.archiveassistant.ui.components.PaneDivider
-import com.lyihub.archiveassistant.ui.components.PaneHeader
 
 private val PalaceGreen = Color(0xFF0F5A43)
 private val PalaceGreenDeep = Color(0xFF0A3D31)
@@ -101,81 +96,66 @@ fun HomePane(
     val pendingCount = pendingCount(recentTopics, itemsByTopic)
     val folders = dashboardFolders(recentTopics, itemsByTopic)
 
-    PaneContainer(modifier = modifier.testTag("home-pane")) {
-        PaneHeader(
-            title = title,
-            subtitle = "一级总览",
-            navigationIcon = {
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .testTag("settings-trigger"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "设置",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-        )
-        PaneDivider()
+    PaneContainer(
+        modifier = modifier
+            .testTag("home-pane")
+            .background(PalaceGreenDeep),
+    ) {
         BoxWithConstraints(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .weight(1f)
                 .background(PalaceGreenDeep),
         ) {
             val expanded = maxWidth >= 720.dp
             val outerPadding = if (expanded) 18.dp else 12.dp
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(outerPadding),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+            MosaicFrame(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(outerPadding),
             ) {
-                item {
-                    MosaicFrame {
-                        if (expanded) {
-                            ExpandedMosaic(
-                                totalItems = totalItems,
-                                pendingCount = pendingCount,
-                                folders = folders,
-                                parserInput = parserInput,
-                                validationMessage = parserValidationMessage,
-                                smartSummarizationMessage = smartSummarizationMessage,
-                                searchQuery = searchQuery,
-                                isSmartSummarizing = isSmartSummarizing,
-                                onInputChanged = onParserInputChanged,
-                                onSubmit = onSubmitParserInput,
-                                onOpenClipboard = onOpenClipboard,
-                                onOpenMemorialDemo = onOpenMemorialDemo,
-                                onSearchQueryChanged = onSearchQueryChanged,
-                                onTopicSelected = onTopicSelected,
-                                onOpenManage = onOpenManage,
-                                onCreateTopic = onCreateTopic,
-                            )
-                        } else {
-                            CompactMosaic(
-                                totalItems = totalItems,
-                                pendingCount = pendingCount,
-                                folders = folders,
-                                parserInput = parserInput,
-                                validationMessage = parserValidationMessage,
-                                smartSummarizationMessage = smartSummarizationMessage,
-                                searchQuery = searchQuery,
-                                isSmartSummarizing = isSmartSummarizing,
-                                onInputChanged = onParserInputChanged,
-                                onSubmit = onSubmitParserInput,
-                                onOpenClipboard = onOpenClipboard,
-                                onOpenMemorialDemo = onOpenMemorialDemo,
-                                onSearchQueryChanged = onSearchQueryChanged,
-                                onTopicSelected = onTopicSelected,
-                                onOpenManage = onOpenManage,
-                                onCreateTopic = onCreateTopic,
-                            )
-                        }
-                    }
+                if (expanded) {
+                    ExpandedMosaic(
+                        appTitle = title,
+                        totalItems = totalItems,
+                        pendingCount = pendingCount,
+                        folders = folders,
+                        parserInput = parserInput,
+                        validationMessage = parserValidationMessage,
+                        smartSummarizationMessage = smartSummarizationMessage,
+                        searchQuery = searchQuery,
+                        isSmartSummarizing = isSmartSummarizing,
+                        onInputChanged = onParserInputChanged,
+                        onSubmit = onSubmitParserInput,
+                        onOpenClipboard = onOpenClipboard,
+                        onOpenMemorialDemo = onOpenMemorialDemo,
+                        onSearchQueryChanged = onSearchQueryChanged,
+                        onTopicSelected = onTopicSelected,
+                        onOpenManage = onOpenManage,
+                        onCreateTopic = onCreateTopic,
+                        onOpenSettings = onOpenSettings,
+                    )
+                } else {
+                    CompactMosaic(
+                        appTitle = title,
+                        totalItems = totalItems,
+                        pendingCount = pendingCount,
+                        folders = folders,
+                        parserInput = parserInput,
+                        validationMessage = parserValidationMessage,
+                        smartSummarizationMessage = smartSummarizationMessage,
+                        searchQuery = searchQuery,
+                        isSmartSummarizing = isSmartSummarizing,
+                        onInputChanged = onParserInputChanged,
+                        onSubmit = onSubmitParserInput,
+                        onOpenClipboard = onOpenClipboard,
+                        onOpenMemorialDemo = onOpenMemorialDemo,
+                        onSearchQueryChanged = onSearchQueryChanged,
+                        onTopicSelected = onTopicSelected,
+                        onOpenManage = onOpenManage,
+                        onCreateTopic = onCreateTopic,
+                        onOpenSettings = onOpenSettings,
+                    )
                 }
             }
         }
@@ -183,10 +163,12 @@ fun HomePane(
 }
 
 @Composable
-private fun MosaicFrame(content: @Composable ColumnScope.() -> Unit) {
+private fun MosaicFrame(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .background(PalaceGridLine)
             .border(1.dp, PalaceGridLine),
         verticalArrangement = Arrangement.spacedBy(1.dp),
@@ -195,7 +177,8 @@ private fun MosaicFrame(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun ExpandedMosaic(
+private fun ColumnScope.ExpandedMosaic(
+    appTitle: String,
     totalItems: Int,
     pendingCount: Int,
     folders: List<DashboardFolder>,
@@ -212,15 +195,17 @@ private fun ExpandedMosaic(
     onTopicSelected: (String) -> Unit,
     onOpenManage: () -> Unit,
     onCreateTopic: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1.08f),
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        HeroCell(
-            totalItems = totalItems,
-            pendingCount = pendingCount,
-            isSmartSummarizing = isSmartSummarizing,
+        TitleCell(
+            appTitle = appTitle,
+            onOpenSettings = onOpenSettings,
             modifier = Modifier.weight(2f),
         )
         PalaceActionCell(
@@ -246,9 +231,17 @@ private fun ExpandedMosaic(
         )
     }
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
+        StatusCell(
+            totalItems = totalItems,
+            pendingCount = pendingCount,
+            isSmartSummarizing = isSmartSummarizing,
+            modifier = Modifier.weight(2f),
+        )
         SearchCell(
             searchQuery = searchQuery,
             onSearchQueryChanged = onSearchQueryChanged,
@@ -258,20 +251,29 @@ private fun ExpandedMosaic(
             onInputChanged = onInputChanged,
             modifier = Modifier.weight(2f),
         )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(0.9f),
+        horizontalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
         MemorialCell(
             pendingCount = pendingCount,
             onClick = onOpenMemorialDemo,
             modifier = Modifier.weight(2f),
         )
+        WorkflowRow(modifier = Modifier.weight(2f))
     }
-    WorkflowRow()
     FolderHeaderRow(
         onCreateTopic = onCreateTopic,
         onOpenManage = onOpenManage,
     )
     folders.chunked(3).forEach { row ->
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.96f),
             horizontalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             row.forEach { folder ->
@@ -286,7 +288,7 @@ private fun ExpandedMosaic(
                 Spacer(
                     modifier = Modifier
                         .weight(1f)
-                        .height(128.dp)
+                        .fillMaxSize()
                         .background(PalaceGreen),
                 )
             }
@@ -295,7 +297,8 @@ private fun ExpandedMosaic(
 }
 
 @Composable
-private fun CompactMosaic(
+private fun ColumnScope.CompactMosaic(
+    appTitle: String,
     totalItems: Int,
     pendingCount: Int,
     folders: List<DashboardFolder>,
@@ -312,15 +315,19 @@ private fun CompactMosaic(
     onTopicSelected: (String) -> Unit,
     onOpenManage: () -> Unit,
     onCreateTopic: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    HeroCell(
-        totalItems = totalItems,
-        pendingCount = pendingCount,
-        isSmartSummarizing = isSmartSummarizing,
-        modifier = Modifier.fillMaxWidth(),
+    TitleCell(
+        appTitle = appTitle,
+        onOpenSettings = onOpenSettings,
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1.25f),
     )
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         PalaceActionCell(
@@ -352,21 +359,35 @@ private fun CompactMosaic(
         validationMessage = validationMessage,
         smartSummarizationMessage = smartSummarizationMessage,
         onInputChanged = onInputChanged,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(0.86f),
     )
     MemorialCell(
         pendingCount = pendingCount,
         onClick = onOpenMemorialDemo,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(0.86f),
     )
-    WorkflowRow()
+    StatusCell(
+        totalItems = totalItems,
+        pendingCount = pendingCount,
+        isSmartSummarizing = isSmartSummarizing,
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(0.9f),
+    )
+    WorkflowRow(modifier = Modifier.weight(0.72f))
     FolderHeaderRow(
         onCreateTopic = onCreateTopic,
         onOpenManage = onOpenManage,
     )
     folders.chunked(2).forEach { row ->
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.92f),
             horizontalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             row.forEach { folder ->
@@ -381,7 +402,7 @@ private fun CompactMosaic(
                 Spacer(
                     modifier = Modifier
                         .weight(1f)
-                        .height(132.dp)
+                        .fillMaxSize()
                         .background(PalaceGreen),
                 )
             }
@@ -390,21 +411,76 @@ private fun CompactMosaic(
 }
 
 @Composable
-private fun HeroCell(
+private fun TitleCell(
+    appTitle: String,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    MosaicCell(
+        modifier = modifier.fillMaxSize(),
+        color = PalaceGreen,
+        contentColor = PalaceGold,
+    ) {
+        DecorativePlaceholder(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 18.dp)
+                .size(104.dp),
+            alpha = 0.18f,
+            tint = PalaceGold,
+        )
+        IconButton(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(6.dp)
+                .testTag("settings-trigger"),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "设置",
+                tint = PalaceGold.copy(alpha = 0.86f),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(horizontal = 18.dp),
+        ) {
+            Text(
+                text = appTitle,
+                style = MaterialTheme.typography.displaySmall,
+                color = PalaceGold,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+            )
+            Text(
+                text = "中书录入 · 门下递奏 · 尚书归档",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.78f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusCell(
     totalItems: Int,
     pendingCount: Int,
     isSmartSummarizing: Boolean,
     modifier: Modifier = Modifier,
 ) {
     MosaicCell(
-        modifier = modifier.height(154.dp),
+        modifier = modifier.fillMaxSize(),
         color = PalaceGreen,
         contentColor = PalaceGold,
     ) {
         DecorativePlaceholder(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(18.dp)
+                .padding(14.dp)
                 .size(86.dp),
             alpha = 0.22f,
             tint = PalaceGold,
@@ -412,11 +488,11 @@ private fun HeroCell(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(horizontal = 18.dp),
+                .padding(horizontal = 16.dp),
         ) {
             Text(
                 text = "朝堂视角",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = PalaceGold,
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
@@ -429,7 +505,7 @@ private fun HeroCell(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier.padding(top = 18.dp),
+                modifier = Modifier.padding(top = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 InlineMetric("宣入", "12")
@@ -472,7 +548,7 @@ private fun PalaceActionCell(
 ) {
     MosaicCell(
         modifier = modifier
-            .height(154.dp)
+            .fillMaxSize()
             .clickable(enabled = enabled, onClick = onClick)
             .testTag(testTag),
         color = if (enabled) color else Color(0xFF9B9B83),
@@ -528,7 +604,7 @@ private fun SearchCell(
     modifier: Modifier = Modifier,
 ) {
     MosaicCell(
-        modifier = modifier.height(118.dp),
+        modifier = modifier.fillMaxSize(),
         color = PalacePaper,
         contentColor = PalaceInk,
     ) {
@@ -599,7 +675,7 @@ private fun MemorialCell(
 ) {
     MosaicCell(
         modifier = modifier
-            .height(118.dp)
+            .fillMaxSize()
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .testTag("memorial-entry-card"),
         color = PalaceGoldBlock,
@@ -636,9 +712,9 @@ private fun MemorialCell(
 }
 
 @Composable
-private fun WorkflowRow() {
+private fun WorkflowRow(modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxSize(),
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         WorkflowCell("中书", "拾取、摘要、拟题", Modifier.weight(1f))
@@ -650,7 +726,7 @@ private fun WorkflowRow() {
 @Composable
 private fun WorkflowCell(title: String, subtitle: String, modifier: Modifier = Modifier) {
     MosaicCell(
-        modifier = modifier.height(74.dp),
+        modifier = modifier.fillMaxSize(),
         color = PalaceGreen,
         contentColor = PalaceGold,
     ) {
@@ -683,13 +759,15 @@ private fun FolderHeaderRow(
     onOpenManage: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         MosaicCell(
             modifier = Modifier
                 .weight(2f)
-                .height(66.dp),
+                .fillMaxSize(),
             color = PalaceGreenDark,
             contentColor = PalaceGold,
         ) {
@@ -735,7 +813,7 @@ private fun HeaderActionCell(
 ) {
     MosaicCell(
         modifier = modifier
-            .height(66.dp)
+            .fillMaxSize()
             .clickable(onClick = onClick)
             .testTag(testTag),
         color = PalaceGoldBlock,
@@ -763,7 +841,7 @@ private fun FolderCell(
     val accentColor = if (folder.isGoldCell) PalaceGreenDark else PalaceGold
     MosaicCell(
         modifier = modifier
-            .height(if (compact) 132.dp else 128.dp)
+            .fillMaxSize()
             .clickable(enabled = folder.topic != null) { folder.topic?.let { onTopicSelected(it.id) } }
             .testTag("topic-card-${folder.id}"),
         color = cellColor,

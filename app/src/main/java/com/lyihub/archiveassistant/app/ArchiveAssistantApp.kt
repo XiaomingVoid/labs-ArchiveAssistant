@@ -7,15 +7,7 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
@@ -23,13 +15,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.lyihub.archiveassistant.data.AiEnginePresetRepository
@@ -45,7 +35,6 @@ import com.lyihub.archiveassistant.service.LocalInferenceConnection
 import com.lyihub.archiveassistant.state.ArchiveAssistantStateStore
 import com.lyihub.archiveassistant.ui.layout.LayoutMode
 import com.lyihub.archiveassistant.ui.layout.rememberWindowLayoutInfo
-import com.lyihub.archiveassistant.ui.layout.shouldShowTwoPanes
 import com.lyihub.archiveassistant.ui.screens.AddItemDialog
 import com.lyihub.archiveassistant.ui.screens.CardModal
 import com.lyihub.archiveassistant.ui.screens.ClipboardDialog
@@ -132,7 +121,6 @@ fun ArchiveAssistantApp(
 
     val state = effectiveStateStore.state
     val layoutInfo = rememberWindowLayoutInfo()
-    val showTwoPanes = layoutInfo.shouldShowTwoPanes(state.selectedTopicId)
     val showMemorialDemo = remember { mutableStateOf(false) }
     val openMemorialDemo = { showMemorialDemo.value = true }
 
@@ -147,26 +135,14 @@ fun ArchiveAssistantApp(
             .fillMaxSize()
             .testTag(layoutModeTag),
     ) {
-        if (showTwoPanes) {
-            TwoPaneLayout(
-                stateStore = effectiveStateStore,
-                layoutInfo = layoutInfo,
-                onAiSettingsChanged = onAiSettingsChanged,
-                presets = presets,
-                onPresetsChanged = onPresetsChanged,
-                onChooseModelFile = onChooseModelFile,
-                onOpenMemorialDemo = openMemorialDemo,
-            )
-        } else {
-            SinglePaneLayout(
-                stateStore = effectiveStateStore,
-                onAiSettingsChanged = onAiSettingsChanged,
-                presets = presets,
-                onPresetsChanged = onPresetsChanged,
-                onChooseModelFile = onChooseModelFile,
-                onOpenMemorialDemo = openMemorialDemo,
-            )
-        }
+        SinglePaneLayout(
+            stateStore = effectiveStateStore,
+            onAiSettingsChanged = onAiSettingsChanged,
+            presets = presets,
+            onPresetsChanged = onPresetsChanged,
+            onChooseModelFile = onChooseModelFile,
+            onOpenMemorialDemo = openMemorialDemo,
+        )
 
         state.modalItem?.let { item ->
             CardModal(
@@ -669,174 +645,6 @@ private fun SinglePaneLayout(
                     onOpenMemorialDemo = onOpenMemorialDemo,
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun TwoPaneLayout(
-    stateStore: ArchiveAssistantStateStore,
-    layoutInfo: com.lyihub.archiveassistant.ui.layout.WindowLayoutInfo,
-    onAiSettingsChanged: (AiEngineSettings) -> Unit,
-    presets: List<AiEnginePreset>,
-    onPresetsChanged: (List<AiEnginePreset>) -> Unit,
-    onChooseModelFile: () -> Unit,
-    onOpenMemorialDemo: () -> Unit,
-) {
-    val state = stateStore.state
-    val hingeBounds = layoutInfo.hingeBounds
-    val hasSecondaryPane = when (state.selectedPane) {
-        AppPane.DETAIL,
-        AppPane.SETTINGS,
-        AppPane.MANAGE,
-        AppPane.CARD_DETAIL -> true
-
-        AppPane.TOPICS,
-        AppPane.CLASSIFICATION_REVIEW -> false
-    }
-
-    Row(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(if (hasSecondaryPane) 1f else 1f)) {
-            HomePane(
-                title = "聚合拾遗",
-                parserInput = state.parserInput,
-                parserValidationMessage = state.parserValidationMessage,
-                recentTopics = state.searchedTopics,
-                itemsByTopic = state.itemsByTopic,
-                searchQuery = state.homeSearchQuery,
-                isSmartSummarizing = state.isSmartSummarizing,
-                smartSummarizationMessage = state.smartSummarizationMessage,
-                onParserInputChanged = stateStore::updateParserInput,
-                onSubmitParserInput = stateStore::submitParserInput,
-                onTopicSelected = stateStore::openTopic,
-                onOpenSettings = stateStore::openSettings,
-                onOpenManage = stateStore::openTopicManagement,
-                onCreateTopic = stateStore::openTopicManagementForCreate,
-                onSearchQueryChanged = stateStore::updateHomeSearchQuery,
-                onOpenClipboard = stateStore::openLatestClipboardDialog,
-                onOpenMemorialDemo = onOpenMemorialDemo,
-            )
-        }
-
-        if (hasSecondaryPane) {
-            if (hingeBounds.isNotEmpty()) {
-                val hingeWidth = hingeBounds.maxOf { it.right - it.left }.coerceAtLeast(0)
-                if (hingeWidth > 0) {
-                    Box(
-                        modifier = Modifier
-                            .width(hingeWidth.dp)
-                            .fillMaxHeight()
-                            .testTag("hinge-spacer"),
-                    )
-                } else {
-                    VerticalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.fillMaxHeight(),
-                    )
-                }
-            } else {
-                VerticalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.fillMaxHeight(),
-                )
-            }
-
-            Box(modifier = Modifier.weight(1f)) {
-                when (state.selectedPane) {
-                    AppPane.DETAIL -> {
-                        val topic = state.selectedTopic
-                        if (topic != null) {
-                            DetailPane(
-                                topic = topic,
-                                items = state.filteredSelectedTopicItems,
-                                activeFilter = state.activeDetailFilter,
-                                searchQuery = state.homeSearchQuery,
-                                onBack = stateStore::closePanes,
-                                onFilterSelected = stateStore::selectFilter,
-                                onItemClick = stateStore::openCardModal,
-                                onAddItemClick = stateStore::openAddItemDialog,
-                            )
-                        }
-                    }
-
-                    AppPane.SETTINGS -> SettingsPane(
-                        aiSettings = state.aiSettings,
-                        onAiSettingsChanged = onAiSettingsChanged,
-                        onBack = stateStore::closePanes,
-                        presets = presets,
-                        onPresetsChanged = onPresetsChanged,
-                        onDownloadModel = stateStore::downloadModel,
-                        onChooseModelFile = onChooseModelFile,
-                        onCancelDownload = stateStore::cancelDownload,
-                        onStartModel = stateStore::startModel,
-                        onStopModel = stateStore::stopModel,
-                        onBackendPreferenceChange = stateStore::updateBackendPreference,
-                        onRunBenchmark = stateStore::runBenchmark,
-                        localModelState = state.localModelState,
-                        benchmarkResult = state.benchmarkResult,
-                        isBenchmarkRunning = state.isBenchmarkRunning,
-                    )
-
-                    AppPane.MANAGE -> ManagePane(
-                        topics = state.topics,
-                        itemsByTopic = state.itemsByTopic,
-                        onBack = stateStore::closePanes,
-                        onTopicSelected = stateStore::openTopic,
-                        onCreateTopic = stateStore::openCreateTopicDialog,
-                        onRenameTopic = stateStore::openRenameTopicDialog,
-                        onDeleteTopic = stateStore::openDeleteConfirmDialog,
-                        onConfirmCreateTopic = stateStore::confirmCreateTopic,
-                        onConfirmRenameTopic = stateStore::confirmRenameTopic,
-                        onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
-                        onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
-                        onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
-                        topicNameDialogMode = state.topicNameDialogMode,
-                        topicNameDialogTopicId = state.topicNameDialogTopicId,
-                        topicValidationMessage = state.topicValidationMessage,
-                        deleteConfirmTopicId = state.deleteConfirmTopicId,
-                    )
-
-                    AppPane.CARD_DETAIL -> {
-                        val topic = state.selectedTopic
-                        if (topic != null) {
-                            DetailPane(
-                                topic = topic,
-                                items = state.filteredSelectedTopicItems,
-                                activeFilter = state.activeDetailFilter,
-                                searchQuery = state.homeSearchQuery,
-                                onBack = stateStore::closeCardModal,
-                                onFilterSelected = stateStore::selectFilter,
-                                onItemClick = stateStore::openCardModal,
-                                onAddItemClick = stateStore::openAddItemDialog,
-                            )
-                        }
-                    }
-
-                    AppPane.TOPICS,
-                    AppPane.CLASSIFICATION_REVIEW -> Unit
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyDetailPane() {
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("empty-detail-pane"),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "选择主题查看",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

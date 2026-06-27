@@ -8,17 +8,23 @@ import android.util.Log
 import android.widget.Toast
 import android.webkit.MimeTypeMap
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,13 +62,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.lyihub.archiveassistant.R
 import androidx.core.content.FileProvider
 import com.lyihub.archiveassistant.domain.ContentType
 import com.lyihub.archiveassistant.domain.DocumentFormat
@@ -71,9 +84,6 @@ import com.lyihub.archiveassistant.domain.Topic
 import com.lyihub.archiveassistant.state.AddItemDialogPrefill
 import com.lyihub.archiveassistant.ui.components.ActionButton
 import com.lyihub.archiveassistant.ui.components.PaneContainer
-import com.lyihub.archiveassistant.ui.components.PaneContentPadding
-import com.lyihub.archiveassistant.ui.components.PaneDivider
-import com.lyihub.archiveassistant.ui.components.PaneHeader
 import com.lyihub.archiveassistant.ui.components.TextActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -89,6 +99,17 @@ private val DetailTabTypes = listOf(
     ContentType.IMAGE_SCREENSHOT,
     ContentType.DOCUMENT,
 )
+
+private val DetailPalaceGreen = Color(0xFF0A3D31)
+private val DetailPalaceGreenMid = Color(0xFF0F5A43)
+private val DetailPalaceGreenDark = Color(0xFF082B24)
+private val DetailPalaceGold = Color(0xFFD6A43A)
+private val DetailPalaceGoldBlock = Color(0xFFE0B13C)
+private val DetailPaper = Color(0xFFFFF7E1)
+private val DetailPaperDeep = Color(0xFFE7D4A2)
+private val DetailInk = Color(0xFF24362D)
+private val DetailCinnabar = Color(0xFF8F2E20)
+private val DetailLine = Color(0xFF6A8F62)
 
 private const val FileProviderAuthoritySuffix = ".fileprovider"
 
@@ -127,91 +148,446 @@ fun DetailPane(
     onAddItemClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    PaneContainer(modifier = modifier.testTag("detail-pane")) {
-        PaneHeader(
-            title = topic.title,
-            navigationIcon = {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.padding(end = 12.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    PaneContainer(
+        modifier = modifier
+            .testTag("detail-pane")
+            .background(DetailPalaceGreen),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(DetailPalaceGreen, DetailPalaceGreenDark),
+                    ),
+                ),
+        ) {
+            val expanded = maxWidth >= 720.dp
+            val horizontalPadding = if (expanded) 28.dp else 16.dp
+            val maxContentWidth = if (expanded) 880.dp else 560.dp
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = horizontalPadding,
+                    top = if (expanded) 22.dp else 16.dp,
+                    end = horizontalPadding,
+                    bottom = 28.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(if (expanded) 18.dp else 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                item {
+                    DetailCourtHeader(
+                        topic = topic,
+                        itemCount = items.size,
+                        activeFilter = activeFilter,
+                        onBack = onBack,
+                        onAddItemClick = onAddItemClick,
+                        onFilterSelected = onFilterSelected,
+                        modifier = Modifier.widthIn(max = maxContentWidth),
                     )
                 }
-            },
-            actions = {
-                IconButton(
-                    onClick = onAddItemClick,
-                    modifier = Modifier.testTag("detail-add-item-button"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "新增资料",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-        )
-        PaneDivider()
-        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            item {
-                PaneContentPadding {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "筛选",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (items.isEmpty()) {
+                    item {
+                        EmptyMemorialShelf(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = maxContentWidth),
                         )
-                        Row(
-                            modifier = Modifier.testTag("detail-tabs"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            DetailTabTypes.forEach { type ->
-                                FilterChip(
-                                    label = type.label,
-                                    selected = activeFilter == type,
-                                    onClick = { onFilterSelected(type) },
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "共 ${items.size} 条资料",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    }
+                } else {
+                    items(items, key = { it.id }) { item ->
+                        MemorialArticleCard(
+                            item = item,
+                            searchQuery = searchQuery,
+                            expanded = expanded,
+                            onClick = { onItemClick(item.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = maxContentWidth),
                         )
                     }
                 }
             }
-            if (items.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 64.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "该分类下暂无资料",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        }
+    }
+}
+
+@Composable
+private fun DetailCourtHeader(
+    topic: Topic,
+    itemCount: Int,
+    activeFilter: ContentType,
+    onBack: () -> Unit,
+    onAddItemClick: () -> Unit,
+    onFilterSelected: (ContentType) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    tint = DetailPalaceGold,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DetailIconAction(
+                    onClick = onAddItemClick,
+                    testTag = "detail-add-item-button",
+                    contentDescription = "新增资料",
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DetailPalaceGreenMid)
+                .border(1.dp, DetailLine),
+        ) {
+            DecorativeDetailImage(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 18.dp)
+                    .size(108.dp),
+                alpha = 0.16f,
+                tint = DetailPalaceGold,
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "尚书档案",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = DetailPalaceGold.copy(alpha = 0.78f),
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = topic.title,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = DetailPalaceGold,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "一篇一折 · 共 $itemCount 篇",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.72f),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("detail-tabs"),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            DetailTabTypes.forEach { type ->
+                DetailFilterSeal(
+                    label = type.label,
+                    selected = activeFilter == type,
+                    onClick = { onFilterSelected(type) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailIconAction(
+    onClick: () -> Unit,
+    testTag: String,
+    contentDescription: String,
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .background(DetailPalaceGoldBlock)
+            .border(1.dp, DetailPalaceGold)
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = contentDescription,
+            tint = DetailPalaceGreenDark,
+        )
+    }
+}
+
+@Composable
+private fun DetailFilterSeal(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = if (selected) DetailPalaceGoldBlock else DetailPalaceGreenMid
+    val content = if (selected) DetailPalaceGreenDark else DetailPalaceGold
+    Box(
+        modifier = modifier
+            .height(42.dp)
+            .background(background)
+            .border(1.dp, DetailLine)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = content,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun MemorialArticleCard(
+    item: KnowledgeItem,
+    searchQuery: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val showHighlight = searchQuery.isNotBlank()
+    Box(
+        modifier = modifier
+            .background(DetailPaperDeep)
+            .border(1.dp, DetailPalaceGold.copy(alpha = 0.76f))
+            .clickable(onClick = onClick)
+            .testTag("knowledge-card-${item.id}"),
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.memorial_xuan_paper),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop,
+            alpha = 0.74f,
+        )
+        PaperVeil(modifier = Modifier.matchParentSize())
+        DecorativeCorner(Modifier.align(Alignment.TopStart), 0f)
+        DecorativeCorner(Modifier.align(Alignment.TopEnd), 90f)
+        DecorativeCorner(Modifier.align(Alignment.BottomEnd), 180f)
+        DecorativeCorner(Modifier.align(Alignment.BottomStart), 270f)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (expanded) 30.dp else 22.dp, vertical = if (expanded) 24.dp else 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "${item.contentType.label} · ${friendlyTime(item.createdAtEpochMillis)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = DetailCinnabar,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "尚书收",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DetailCinnabar.copy(alpha = 0.82f),
+                    fontWeight = FontWeight.Black,
+                )
+            }
+            Text(
+                text = if (showHighlight) {
+                    buildHighlightedText(
+                        text = item.title,
+                        query = searchQuery,
+                        highlightColor = DetailCinnabar,
+                        highlightBgColor = DetailCinnabar.copy(alpha = 0.16f),
+                    )
+                } else {
+                    androidx.compose.ui.text.AnnotatedString(item.title)
+                },
+                style = if (expanded) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                color = DetailInk,
+                fontWeight = FontWeight.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (showHighlight) {
+                    buildHighlightedText(
+                        text = item.summary.ifBlank { item.fullText },
+                        query = searchQuery,
+                        highlightColor = DetailCinnabar,
+                        highlightBgColor = DetailCinnabar.copy(alpha = 0.16f),
+                    )
+                } else {
+                    androidx.compose.ui.text.AnnotatedString(item.summary.ifBlank { item.fullText })
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = DetailInk.copy(alpha = 0.82f),
+                maxLines = if (expanded) 3 else 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (item.contentType == ContentType.IMAGE_SCREENSHOT && item.sourceUrl != null) {
+                val path = item.sourceUrl!!
+                var thumbBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+                LaunchedEffect(path) {
+                    thumbBitmap = withContext(Dispatchers.IO) {
+                        try {
+                            BitmapFactory.decodeFile(path)?.asImageBitmap()
+                        } catch (_: Exception) {
+                            null
+                        }
                     }
                 }
-            } else {
-                items(items, key = { it.id }) { item ->
-                    KnowledgeItemRow(
-                        item = item,
-                        searchQuery = searchQuery,
-                        onClick = { onItemClick(item.id) },
+                thumbBitmap?.let { bmp ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = item.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(32f / 9f)
+                            .border(1.dp, DetailInk.copy(alpha = 0.24f)),
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    text = item.fileName ?: item.sourceUrl?.take(36).orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = DetailInk.copy(alpha = 0.56f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 62.dp, height = 38.dp)
+                        .border(2.dp, DetailCinnabar.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "已藏",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = DetailCinnabar.copy(alpha = 0.82f),
+                        fontWeight = FontWeight.Black,
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun EmptyMemorialShelf(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(DetailPaperDeep)
+            .border(1.dp, DetailPalaceGold.copy(alpha = 0.78f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.memorial_xuan_paper),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop,
+            alpha = 0.68f,
+        )
+        PaperVeil(modifier = Modifier.matchParentSize())
+        Column(
+            modifier = Modifier.padding(36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = DetailCinnabar.copy(alpha = 0.76f),
+            )
+            Text(
+                text = "此档暂无奏折",
+                style = MaterialTheme.typography.headlineSmall,
+                color = DetailInk,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = "可由中书录入，门下筛选后归入尚书档案。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DetailInk.copy(alpha = 0.68f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaperVeil(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        DetailPaper.copy(alpha = 0.42f),
+                        Color.Black.copy(alpha = 0.05f),
+                    ),
+                ),
+            ),
+    )
+}
+
+@Composable
+private fun DecorativeCorner(
+    modifier: Modifier = Modifier,
+    rotation: Float,
+) {
+    Image(
+        painter = painterResource(id = R.drawable.memorial_cover_corner),
+        contentDescription = null,
+        modifier = modifier
+            .padding(8.dp)
+            .size(30.dp)
+            .graphicsLayer(rotationZ = rotation),
+        contentScale = ContentScale.Fit,
+        alpha = 0.58f,
+        colorFilter = ColorFilter.tint(DetailCinnabar.copy(alpha = 0.76f)),
+    )
+}
+
+@Composable
+private fun DecorativeDetailImage(
+    modifier: Modifier = Modifier,
+    alpha: Float,
+    tint: Color,
+) {
+    Image(
+        painter = painterResource(id = R.drawable.dashboard_placeholder),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Crop,
+        alpha = alpha,
+        colorFilter = ColorFilter.tint(tint),
+    )
 }
 
 @Composable
@@ -242,95 +618,6 @@ private fun FilterChip(
             color = textColor,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
-    }
-}
-
-@Composable
-private fun KnowledgeItemRow(
-    item: KnowledgeItem,
-    searchQuery: String,
-    onClick: () -> Unit,
-) {
-    val showHighlight = searchQuery.isNotBlank()
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .testTag("knowledge-card-${item.id}"),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = item.contentType.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (showHighlight) {
-                    buildHighlightedText(
-                        text = item.title,
-                        query = searchQuery,
-                        highlightColor = MaterialTheme.colorScheme.primary,
-                        highlightBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    )
-                } else {
-                    androidx.compose.ui.text.AnnotatedString(item.title)
-                },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = if (showHighlight) {
-                    buildHighlightedText(
-                        text = item.summary,
-                        query = searchQuery,
-                        highlightColor = MaterialTheme.colorScheme.primary,
-                        highlightBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    )
-                } else {
-                    androidx.compose.ui.text.AnnotatedString(item.summary)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (item.contentType == ContentType.IMAGE_SCREENSHOT && item.sourceUrl != null) {
-                val path = item.sourceUrl!!
-                var thumbBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
-                LaunchedEffect(path) {
-                    thumbBitmap = withContext(Dispatchers.IO) {
-                        try {
-                            BitmapFactory.decodeFile(path)?.asImageBitmap()
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                }
-                thumbBitmap?.let { bmp ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Image(
-                        bitmap = bmp,
-                        contentDescription = item.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(32f / 9f)
-                            .clip(RoundedCornerShape(8.dp)),
-                    )
-                }
-            }
-        }
     }
 }
 
