@@ -685,9 +685,18 @@ private fun TwoPaneLayout(
 ) {
     val state = stateStore.state
     val hingeBounds = layoutInfo.hingeBounds
+    val hasSecondaryPane = when (state.selectedPane) {
+        AppPane.DETAIL,
+        AppPane.SETTINGS,
+        AppPane.MANAGE,
+        AppPane.CARD_DETAIL -> true
+
+        AppPane.TOPICS,
+        AppPane.CLASSIFICATION_REVIEW -> false
+    }
 
     Row(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(if (hasSecondaryPane) 1f else 1f)) {
             HomePane(
                 title = "聚合拾遗",
                 parserInput = state.parserInput,
@@ -709,101 +718,102 @@ private fun TwoPaneLayout(
             )
         }
 
-        if (hingeBounds.isNotEmpty()) {
-            val hingeWidth = hingeBounds.maxOf { it.right - it.left }.coerceAtLeast(0)
-            if (hingeWidth > 0) {
-                Box(
-                    modifier = Modifier
-                        .width(hingeWidth.dp)
-                        .fillMaxHeight()
-                        .testTag("hinge-spacer"),
-                )
+        if (hasSecondaryPane) {
+            if (hingeBounds.isNotEmpty()) {
+                val hingeWidth = hingeBounds.maxOf { it.right - it.left }.coerceAtLeast(0)
+                if (hingeWidth > 0) {
+                    Box(
+                        modifier = Modifier
+                            .width(hingeWidth.dp)
+                            .fillMaxHeight()
+                            .testTag("hinge-spacer"),
+                    )
+                } else {
+                    VerticalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.fillMaxHeight(),
+                    )
+                }
             } else {
                 VerticalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     modifier = Modifier.fillMaxHeight(),
                 )
             }
-        } else {
-            VerticalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.fillMaxHeight(),
-            )
-        }
 
-        Box(modifier = Modifier.weight(1f)) {
-            when (state.selectedPane) {
-                AppPane.DETAIL -> {
-                    val topic = state.selectedTopic
-                    if (topic != null) {
-                        DetailPane(
-                            topic = topic,
-                            items = state.filteredSelectedTopicItems,
-                            activeFilter = state.activeDetailFilter,
-                            searchQuery = state.homeSearchQuery,
-                            onBack = stateStore::closePanes,
-                            onFilterSelected = stateStore::selectFilter,
-                            onItemClick = stateStore::openCardModal,
-                            onAddItemClick = stateStore::openAddItemDialog,
-                        )
+            Box(modifier = Modifier.weight(1f)) {
+                when (state.selectedPane) {
+                    AppPane.DETAIL -> {
+                        val topic = state.selectedTopic
+                        if (topic != null) {
+                            DetailPane(
+                                topic = topic,
+                                items = state.filteredSelectedTopicItems,
+                                activeFilter = state.activeDetailFilter,
+                                searchQuery = state.homeSearchQuery,
+                                onBack = stateStore::closePanes,
+                                onFilterSelected = stateStore::selectFilter,
+                                onItemClick = stateStore::openCardModal,
+                                onAddItemClick = stateStore::openAddItemDialog,
+                            )
+                        }
                     }
-                }
 
-                AppPane.SETTINGS -> SettingsPane(
-                    aiSettings = state.aiSettings,
-                    onAiSettingsChanged = onAiSettingsChanged,
-                    onBack = stateStore::closePanes,
-                    presets = presets,
-                    onPresetsChanged = onPresetsChanged,
-                    onDownloadModel = stateStore::downloadModel,
-                    onChooseModelFile = onChooseModelFile,
-                    onCancelDownload = stateStore::cancelDownload,
-                    onStartModel = stateStore::startModel,
-                    onStopModel = stateStore::stopModel,
-                    onBackendPreferenceChange = stateStore::updateBackendPreference,
-                    onRunBenchmark = stateStore::runBenchmark,
-                    localModelState = state.localModelState,
-                    benchmarkResult = state.benchmarkResult,
-                    isBenchmarkRunning = state.isBenchmarkRunning,
-                )
+                    AppPane.SETTINGS -> SettingsPane(
+                        aiSettings = state.aiSettings,
+                        onAiSettingsChanged = onAiSettingsChanged,
+                        onBack = stateStore::closePanes,
+                        presets = presets,
+                        onPresetsChanged = onPresetsChanged,
+                        onDownloadModel = stateStore::downloadModel,
+                        onChooseModelFile = onChooseModelFile,
+                        onCancelDownload = stateStore::cancelDownload,
+                        onStartModel = stateStore::startModel,
+                        onStopModel = stateStore::stopModel,
+                        onBackendPreferenceChange = stateStore::updateBackendPreference,
+                        onRunBenchmark = stateStore::runBenchmark,
+                        localModelState = state.localModelState,
+                        benchmarkResult = state.benchmarkResult,
+                        isBenchmarkRunning = state.isBenchmarkRunning,
+                    )
 
-                AppPane.TOPICS -> EmptyDetailPane()
+                    AppPane.MANAGE -> ManagePane(
+                        topics = state.topics,
+                        itemsByTopic = state.itemsByTopic,
+                        onBack = stateStore::closePanes,
+                        onTopicSelected = stateStore::openTopic,
+                        onCreateTopic = stateStore::openCreateTopicDialog,
+                        onRenameTopic = stateStore::openRenameTopicDialog,
+                        onDeleteTopic = stateStore::openDeleteConfirmDialog,
+                        onConfirmCreateTopic = stateStore::confirmCreateTopic,
+                        onConfirmRenameTopic = stateStore::confirmRenameTopic,
+                        onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
+                        onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
+                        onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
+                        topicNameDialogMode = state.topicNameDialogMode,
+                        topicNameDialogTopicId = state.topicNameDialogTopicId,
+                        topicValidationMessage = state.topicValidationMessage,
+                        deleteConfirmTopicId = state.deleteConfirmTopicId,
+                    )
 
-                AppPane.MANAGE -> ManagePane(
-                    topics = state.topics,
-                    itemsByTopic = state.itemsByTopic,
-                    onBack = stateStore::closePanes,
-                    onTopicSelected = stateStore::openTopic,
-                    onCreateTopic = stateStore::openCreateTopicDialog,
-                    onRenameTopic = stateStore::openRenameTopicDialog,
-                    onDeleteTopic = stateStore::openDeleteConfirmDialog,
-                    onConfirmCreateTopic = stateStore::confirmCreateTopic,
-                    onConfirmRenameTopic = stateStore::confirmRenameTopic,
-                    onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
-                    onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
-                    onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
-                    topicNameDialogMode = state.topicNameDialogMode,
-                    topicNameDialogTopicId = state.topicNameDialogTopicId,
-                    topicValidationMessage = state.topicValidationMessage,
-                    deleteConfirmTopicId = state.deleteConfirmTopicId,
-                )
-
-                AppPane.CLASSIFICATION_REVIEW -> EmptyDetailPane()
-
-                AppPane.CARD_DETAIL -> {
-                    val topic = state.selectedTopic
-                    if (topic != null) {
-                        DetailPane(
-                            topic = topic,
-                            items = state.filteredSelectedTopicItems,
-                            activeFilter = state.activeDetailFilter,
-                            searchQuery = state.homeSearchQuery,
-                            onBack = stateStore::closeCardModal,
-                            onFilterSelected = stateStore::selectFilter,
-                            onItemClick = stateStore::openCardModal,
-                            onAddItemClick = stateStore::openAddItemDialog,
-                        )
+                    AppPane.CARD_DETAIL -> {
+                        val topic = state.selectedTopic
+                        if (topic != null) {
+                            DetailPane(
+                                topic = topic,
+                                items = state.filteredSelectedTopicItems,
+                                activeFilter = state.activeDetailFilter,
+                                searchQuery = state.homeSearchQuery,
+                                onBack = stateStore::closeCardModal,
+                                onFilterSelected = stateStore::selectFilter,
+                                onItemClick = stateStore::openCardModal,
+                                onAddItemClick = stateStore::openAddItemDialog,
+                            )
+                        }
                     }
+
+                    AppPane.TOPICS,
+                    AppPane.CLASSIFICATION_REVIEW -> Unit
                 }
             }
         }

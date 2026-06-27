@@ -155,6 +155,7 @@ fun HomePane(
                     onInputChanged = onParserInputChanged,
                     onSubmit = onSubmitParserInput,
                     onOpenClipboard = onOpenClipboard,
+                    onOpenMemorialDemo = onOpenMemorialDemo,
                     searchQuery = searchQuery,
                     onSearchQueryChanged = onSearchQueryChanged,
                     isSmartSummarizing = isSmartSummarizing,
@@ -206,13 +207,13 @@ private fun PalaceHero(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "中书拟题 · 门下筛选 · 尚书归档",
+                        text = "中书录入 · 门下递奏 · 尚书归档",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.74f),
                     )
                 }
                 StatusSeal(
-                    label = if (isSmartSummarizing) "拟录中" else "待批",
+                    label = if (isSmartSummarizing) "拟录中" else "递奏",
                     value = if (isSmartSummarizing) "中" else "6",
                 )
             }
@@ -294,6 +295,7 @@ private fun QuickActionGrid(
     onInputChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onOpenClipboard: () -> Unit,
+    onOpenMemorialDemo: (() -> Unit)?,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     isSmartSummarizing: Boolean,
@@ -320,6 +322,18 @@ private fun QuickActionGrid(
                 modifier = Modifier
                     .weight(1f)
                     .testTag("classify-button"),
+            )
+        }
+        if (onOpenMemorialDemo != null) {
+            ActionTile(
+                title = "门下递奏",
+                subtitle = "批阅今日筛选内容",
+                tone = PalaceGreen,
+                contentColor = PalaceGold,
+                onClick = onOpenMemorialDemo,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("memorial-entry-card"),
             )
         }
         Surface(
@@ -478,16 +492,14 @@ private fun WorkflowStrip() {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = "运行链路",
+                text = "今日处理",
                 style = MaterialTheme.typography.titleSmall,
                 color = PalaceGold,
                 fontWeight = FontWeight.SemiBold,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                WorkflowNode("尚书", "旧档", Modifier.weight(1f))
-                WorkflowNode("中书", "拟题", Modifier.weight(1f))
-                WorkflowNode("门下", "过筛", Modifier.weight(1f))
-                WorkflowNode("御前", "待批", Modifier.weight(1f))
+                WorkflowNode("中书", "录入拟题", Modifier.weight(1f))
+                WorkflowNode("门下", "筛选递奏", Modifier.weight(1f))
             }
         }
     }
@@ -689,7 +701,7 @@ private fun MemorialDemoButton(onClick: () -> Unit) {
         ),
     ) {
         Text(
-            text = "奏章",
+            text = "递奏",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
         )
