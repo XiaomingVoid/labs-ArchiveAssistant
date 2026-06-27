@@ -13,7 +13,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -140,12 +139,17 @@ fun DetailPane(
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
 ) {
+    val horizontalPadding = 24.dp
+    val topPadding = 40.dp
+    val contentTopPadding = 156.dp
+    val maxContentWidth = 560.dp
+
     PaneContainer(
         modifier = modifier
             .testTag("detail-pane")
             .background(DetailPalaceGreen),
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
@@ -159,10 +163,6 @@ fun DetailPane(
                 alpha = 0.28f,
             )
             PaperVeil(modifier = Modifier.matchParentSize())
-            val expanded = maxWidth >= 620.dp
-            val horizontalPadding = if (expanded) 36.dp else 24.dp
-            val topPadding = if (expanded) 56.dp else 40.dp
-            val maxContentWidth = if (expanded) 980.dp else 560.dp
 
             DetailCourtHeader(
                 topic = topic,
@@ -172,7 +172,6 @@ fun DetailPane(
                     .align(Alignment.TopStart)
                     .padding(start = horizontalPadding, top = topPadding, end = horizontalPadding)
                     .widthIn(max = maxContentWidth),
-                expanded = expanded,
                 showBackButton = showBackButton,
             )
 
@@ -180,11 +179,11 @@ fun DetailPane(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = horizontalPadding,
-                    top = if (expanded) 190.dp else 156.dp,
+                    top = contentTopPadding,
                     end = horizontalPadding,
                     bottom = 28.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (items.isEmpty()) {
@@ -254,12 +253,11 @@ private fun DetailCourtHeader(
     itemCount: Int,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    expanded: Boolean,
     showBackButton: Boolean,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(if (expanded) 10.dp else 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (showBackButton) {
             Row(
@@ -278,7 +276,7 @@ private fun DetailCourtHeader(
         }
         Text(
             text = topic.title,
-            style = if (expanded) MaterialTheme.typography.displayLarge else MaterialTheme.typography.displayMedium,
+            style = MaterialTheme.typography.displayMedium,
             color = DetailPalaceGold,
             fontWeight = FontWeight.Normal,
             maxLines = 2,
@@ -286,10 +284,10 @@ private fun DetailCourtHeader(
         )
         Text(
             text = "尚书归档，共 $itemCount 篇。两列铺陈，便于快速浏览、筛选与复查。",
-            style = if (expanded) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = DetailInk.copy(alpha = 0.78f),
             modifier = Modifier
-                .fillMaxWidth(if (expanded) 0.38f else 0.56f)
+                .fillMaxWidth(0.56f)
                 .testTag("detail-summary"),
         )
     }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -115,65 +114,42 @@ fun HomePane(
     val pendingCount = pendingCount(recentTopics, itemsByTopic)
     val folders = dashboardFolders(recentTopics, itemsByTopic, searchQuery)
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .testTag("home-pane")
             .fillMaxSize()
             .background(PalaceGreenDeep),
     ) {
-        val expanded = maxWidth >= 720.dp
-        val horizontalPadding = if (expanded) 28.dp else 16.dp
-        val topPadding = if (expanded) 54.dp else 36.dp
-        val bottomPadding = if (expanded) 40.dp else 28.dp
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
             HomeContentColumn(
-                expanded = expanded,
                 modifier = Modifier
                     .padding(
-                        start = horizontalPadding,
-                        top = topPadding,
-                        end = horizontalPadding,
-                        bottom = bottomPadding,
+                        start = 16.dp,
+                        top = 36.dp,
+                        end = 16.dp,
+                        bottom = 28.dp,
                     )
                     .fillMaxWidth(),
             ) {
-                if (expanded) {
-                    ExpandedMosaic(
-                        appTitle = title,
-                        pendingCount = pendingCount,
-                        folders = folders,
-                        validationMessage = parserValidationMessage,
-                        smartSummarizationMessage = smartSummarizationMessage,
-                        searchQuery = searchQuery,
-                        onOpenClipboard = onOpenClipboard,
-                        onOpenMemorialDemo = onOpenMemorialDemo,
-                        onSearchQueryChanged = onSearchQueryChanged,
-                        onTopicSelected = onTopicSelected,
-                        onOpenSettings = onOpenSettings,
-                        onOpenManage = onOpenManage,
-                        onCreateTopic = onCreateTopic,
-                    )
-                } else {
-                    CompactMosaic(
-                        appTitle = title,
-                        pendingCount = pendingCount,
-                        folders = folders,
-                        validationMessage = parserValidationMessage,
-                        smartSummarizationMessage = smartSummarizationMessage,
-                        searchQuery = searchQuery,
-                        onOpenClipboard = onOpenClipboard,
-                        onOpenMemorialDemo = onOpenMemorialDemo,
-                        onSearchQueryChanged = onSearchQueryChanged,
-                        onTopicSelected = onTopicSelected,
-                        onOpenSettings = onOpenSettings,
-                        onOpenManage = onOpenManage,
-                        onCreateTopic = onCreateTopic,
-                    )
-                }
+                HomeMosaic(
+                    appTitle = title,
+                    pendingCount = pendingCount,
+                    folders = folders,
+                    validationMessage = parserValidationMessage,
+                    smartSummarizationMessage = smartSummarizationMessage,
+                    searchQuery = searchQuery,
+                    onOpenClipboard = onOpenClipboard,
+                    onOpenMemorialDemo = onOpenMemorialDemo,
+                    onSearchQueryChanged = onSearchQueryChanged,
+                    onTopicSelected = onTopicSelected,
+                    onOpenSettings = onOpenSettings,
+                    onOpenManage = onOpenManage,
+                    onCreateTopic = onCreateTopic,
+                )
             }
         }
     }
@@ -181,95 +157,18 @@ fun HomePane(
 
 @Composable
 private fun HomeContentColumn(
-    expanded: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
 }
 
 @Composable
-private fun ColumnScope.ExpandedMosaic(
-    appTitle: String,
-    pendingCount: Int,
-    folders: List<DashboardFolder>,
-    validationMessage: String?,
-    smartSummarizationMessage: String?,
-    searchQuery: String,
-    onOpenClipboard: () -> Unit,
-    onOpenMemorialDemo: (() -> Unit)?,
-    onSearchQueryChanged: (String) -> Unit,
-    onTopicSelected: (String) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenManage: () -> Unit,
-    onCreateTopic: () -> Unit,
-) {
-    HomeHeaderRow(
-        appTitle = appTitle,
-        onOpenSettings = onOpenSettings,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(154.dp),
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(128.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        PalaceActionCell(
-            title = "宣拾遗",
-            subtitle = "重新读取剪切板",
-            label = "中书",
-            color = PalaceGoldBlock,
-            contentColor = PalaceGreenDark,
-            modifier = Modifier.weight(1f),
-            onClick = onOpenClipboard,
-            testTag = "clipboard-button",
-        )
-        SearchCell(
-            searchQuery = searchQuery,
-            onSearchQueryChanged = onSearchQueryChanged,
-            validationMessage = validationMessage,
-            smartSummarizationMessage = smartSummarizationMessage,
-            modifier = Modifier.weight(2.25f),
-        )
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        MemorialCell(
-            pendingCount = pendingCount,
-            onClick = onOpenMemorialDemo,
-            modifier = Modifier.weight(1.2f),
-        )
-        WorkflowRow(modifier = Modifier.weight(1.8f))
-    }
-    MinistryHeaderRow(
-        searchQuery = searchQuery,
-        resultCount = folders.count { it.topic != null },
-    )
-    MinistryActionRow(
-        onCreateTopic = onCreateTopic,
-        onOpenManage = onOpenManage,
-    )
-    FolderResultList(
-        folders = folders,
-        searchQuery = searchQuery,
-        onTopicSelected = onTopicSelected,
-        compact = false,
-    )
-}
-
-@Composable
-private fun ColumnScope.CompactMosaic(
+private fun ColumnScope.HomeMosaic(
     appTitle: String,
     pendingCount: Int,
     folders: List<DashboardFolder>,
@@ -291,23 +190,14 @@ private fun ColumnScope.CompactMosaic(
             .fillMaxWidth()
             .height(140.dp),
     )
-    Row(
+    PrimaryActionRow(
+        pendingCount = pendingCount,
+        onOpenClipboard = onOpenClipboard,
+        onOpenMemorialDemo = onOpenMemorialDemo,
         modifier = Modifier
             .fillMaxWidth()
-            .height(112.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        PalaceActionCell(
-            title = "宣拾遗",
-            subtitle = "读取剪切板",
-            label = "中书",
-            color = PalaceGoldBlock,
-            contentColor = PalaceGreenDark,
-            modifier = Modifier.weight(1f),
-            onClick = onOpenClipboard,
-            testTag = "clipboard-button",
-        )
-    }
+            .height(108.dp),
+    )
     SearchCell(
         searchQuery = searchQuery,
         onSearchQueryChanged = onSearchQueryChanged,
@@ -317,21 +207,15 @@ private fun ColumnScope.CompactMosaic(
             .fillMaxWidth()
             .height(104.dp),
     )
-    MemorialCell(
-        pendingCount = pendingCount,
-        onClick = onOpenMemorialDemo,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(104.dp),
-    )
     WorkflowRow(modifier = Modifier.height(76.dp))
-    MinistryHeaderRow(
+    MinistryControlRow(
         searchQuery = searchQuery,
         resultCount = folders.count { it.topic != null },
-    )
-    MinistryActionRow(
         onCreateTopic = onCreateTopic,
         onOpenManage = onOpenManage,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(90.dp),
     )
     FolderResultList(
         folders = folders,
@@ -391,7 +275,7 @@ private fun TitleCell(
                 maxLines = 1,
             )
             Text(
-                text = "中书录入 · 门下递奏 · 尚书归档",
+                text = "中书录入 · 批奏折 · 尚书归档",
                 style = MaterialTheme.typography.bodyMedium,
                 color = ImperialUmber.copy(alpha = 0.72f),
                 maxLines = 1,
@@ -462,6 +346,35 @@ private fun PalaceActionCell(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+@Composable
+private fun PrimaryActionRow(
+    pendingCount: Int,
+    onOpenClipboard: () -> Unit,
+    onOpenMemorialDemo: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PalaceActionCell(
+            title = "宣拾遗",
+            subtitle = "读取剪切板",
+            label = "中书",
+            color = PalaceGoldBlock,
+            contentColor = PalaceGreenDark,
+            modifier = Modifier.weight(1f),
+            onClick = onOpenClipboard,
+            testTag = "clipboard-button",
+        )
+        MemorialCell(
+            pendingCount = pendingCount,
+            onClick = onOpenMemorialDemo,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -572,7 +485,7 @@ private fun MemorialCell(
                 .padding(horizontal = 16.dp),
         ) {
             Text(
-                text = "门下递奏",
+                text = "批奏折",
                 style = MaterialTheme.typography.headlineSmall,
                 color = PalaceGreenDark,
                 fontWeight = FontWeight.Normal,
@@ -631,50 +544,26 @@ private fun WorkflowCell(title: String, subtitle: String, modifier: Modifier = M
 }
 
 @Composable
-private fun MinistryHeaderRow(
+private fun MinistryControlRow(
     searchQuery: String,
     resultCount: Int,
-) {
-    MosaicCell(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        color = PalaceGreenDark,
-        contentColor = ImperialIvory,
-    ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 14.dp),
-        ) {
-            Text(
-                text = "尚书省",
-                style = MaterialTheme.typography.titleLarge,
-                color = ImperialIvory,
-                fontWeight = FontWeight.Normal,
-            )
-            Text(
-                text = if (searchQuery.isBlank()) "六个固定文件夹" else "按「$searchQuery」检出 $resultCount 类",
-                style = MaterialTheme.typography.bodySmall,
-                color = ImperialIvory.copy(alpha = 0.72f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MinistryActionRow(
     onCreateTopic: () -> Unit,
     onOpenManage: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(68.dp),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        MinistryActionButton(
+            title = "尚书省",
+            subtitle = if (searchQuery.isBlank()) "六个固定文件夹" else "检出 $resultCount 类",
+            onClick = {},
+            testTag = "ministry-header-cell",
+            modifier = Modifier.weight(1f),
+            enabled = false,
+            highlight = true,
+        )
         MinistryActionButton(
             title = "新建",
             subtitle = "新立一夹",
@@ -699,15 +588,19 @@ private fun MinistryActionButton(
     onClick: () -> Unit,
     testTag: String,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    highlight: Boolean = false,
 ) {
     MosaicCell(
         modifier = modifier
             .fillMaxSize()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .testTag(testTag),
-        color = ImperialLightGold,
-        contentColor = PalaceInk,
+        color = if (highlight) PalaceGreenDark else ImperialLightGold,
+        contentColor = if (highlight) ImperialIvory else PalaceInk,
     ) {
+        val textColor = if (highlight) ImperialIvory else PalaceInk
+        val secondaryColor = textColor.copy(alpha = if (highlight) 0.72f else 0.68f)
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -717,14 +610,14 @@ private fun MinistryActionButton(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                color = PalaceInk,
+                color = textColor,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = PalaceInk.copy(alpha = 0.68f),
+                color = secondaryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
