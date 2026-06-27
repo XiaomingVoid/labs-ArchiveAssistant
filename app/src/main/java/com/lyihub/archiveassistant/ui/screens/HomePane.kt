@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -132,53 +134,68 @@ fun HomePane(
         ) {
             val expanded = maxWidth >= 720.dp
             val outerPadding = if (expanded) 18.dp else 12.dp
-            MosaicFrame(
+            val outerTopPadding = if (expanded) 30.dp else 24.dp
+            val outerBottomPadding = if (expanded) 24.dp else 20.dp
+            val frameHeight = maxHeight + if (expanded) 86.dp else 132.dp
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(outerPadding),
+                    .verticalScroll(rememberScrollState()),
             ) {
-                if (expanded) {
-                    ExpandedMosaic(
-                        appTitle = title,
-                        totalItems = totalItems,
-                        pendingCount = pendingCount,
-                        folders = folders,
-                        parserInput = parserInput,
-                        validationMessage = parserValidationMessage,
-                        smartSummarizationMessage = smartSummarizationMessage,
-                        searchQuery = searchQuery,
-                        isSmartSummarizing = isSmartSummarizing,
-                        onInputChanged = onParserInputChanged,
-                        onSubmit = onSubmitParserInput,
-                        onOpenClipboard = onOpenClipboard,
-                        onOpenMemorialDemo = onOpenMemorialDemo,
-                        onSearchQueryChanged = onSearchQueryChanged,
-                        onTopicSelected = onTopicSelected,
-                        onOpenManage = onOpenManage,
-                        onCreateTopic = onCreateTopic,
-                        onOpenSettings = onOpenSettings,
-                    )
-                } else {
-                    CompactMosaic(
-                        appTitle = title,
-                        totalItems = totalItems,
-                        pendingCount = pendingCount,
-                        folders = folders,
-                        parserInput = parserInput,
-                        validationMessage = parserValidationMessage,
-                        smartSummarizationMessage = smartSummarizationMessage,
-                        searchQuery = searchQuery,
-                        isSmartSummarizing = isSmartSummarizing,
-                        onInputChanged = onParserInputChanged,
-                        onSubmit = onSubmitParserInput,
-                        onOpenClipboard = onOpenClipboard,
-                        onOpenMemorialDemo = onOpenMemorialDemo,
-                        onSearchQueryChanged = onSearchQueryChanged,
-                        onTopicSelected = onTopicSelected,
-                        onOpenManage = onOpenManage,
-                        onCreateTopic = onCreateTopic,
-                        onOpenSettings = onOpenSettings,
-                    )
+                MosaicFrame(
+                    modifier = Modifier
+                        .padding(
+                            start = outerPadding,
+                            top = outerTopPadding,
+                            end = outerPadding,
+                            bottom = outerBottomPadding,
+                        )
+                        .fillMaxWidth()
+                        .height(frameHeight),
+                ) {
+                    if (expanded) {
+                        ExpandedMosaic(
+                            appTitle = title,
+                            totalItems = totalItems,
+                            pendingCount = pendingCount,
+                            folders = folders,
+                            parserInput = parserInput,
+                            validationMessage = parserValidationMessage,
+                            smartSummarizationMessage = smartSummarizationMessage,
+                            searchQuery = searchQuery,
+                            isSmartSummarizing = isSmartSummarizing,
+                            onInputChanged = onParserInputChanged,
+                            onSubmit = onSubmitParserInput,
+                            onOpenClipboard = onOpenClipboard,
+                            onOpenMemorialDemo = onOpenMemorialDemo,
+                            onSearchQueryChanged = onSearchQueryChanged,
+                            onTopicSelected = onTopicSelected,
+                            onOpenManage = onOpenManage,
+                            onCreateTopic = onCreateTopic,
+                            onOpenSettings = onOpenSettings,
+                        )
+                    } else {
+                        CompactMosaic(
+                            appTitle = title,
+                            totalItems = totalItems,
+                            pendingCount = pendingCount,
+                            folders = folders,
+                            parserInput = parserInput,
+                            validationMessage = parserValidationMessage,
+                            smartSummarizationMessage = smartSummarizationMessage,
+                            searchQuery = searchQuery,
+                            isSmartSummarizing = isSmartSummarizing,
+                            onInputChanged = onParserInputChanged,
+                            onSubmit = onSubmitParserInput,
+                            onOpenClipboard = onOpenClipboard,
+                            onOpenMemorialDemo = onOpenMemorialDemo,
+                            onSearchQueryChanged = onSearchQueryChanged,
+                            onTopicSelected = onTopicSelected,
+                            onOpenManage = onOpenManage,
+                            onCreateTopic = onCreateTopic,
+                            onOpenSettings = onOpenSettings,
+                        )
+                    }
                 }
             }
         }

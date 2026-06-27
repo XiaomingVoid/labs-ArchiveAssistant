@@ -1,5 +1,8 @@
 package com.lyihub.archiveassistant.ui.screens
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,7 +46,6 @@ import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.ui.theme.ImperialBronze
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
 import com.lyihub.archiveassistant.ui.theme.ImperialIvory
-import com.lyihub.archiveassistant.ui.theme.ImperialLightGold
 import com.lyihub.archiveassistant.ui.theme.ImperialParchment
 import com.lyihub.archiveassistant.ui.theme.ImperialUmber
 import kotlin.math.cos
@@ -54,6 +56,7 @@ import kotlin.math.sin
 private const val MemorialCoverAspect = 10f / 22f
 private const val MemorialWheelItemCount = 24
 private const val MemorialActiveSlotDegrees = 225f
+private const val MemorialWheelDragDegreesPerPixel = -0.18f
 
 @Composable
 fun MemorialBriefingPane(
@@ -99,12 +102,7 @@ fun MemorialBriefingPane(
             expanded = expanded,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = if (expanded) 30.dp else 20.dp, top = if (expanded) 28.dp else 18.dp),
-        )
-        RingCenterHint(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = if (expanded) 48.dp else 24.dp),
+                .padding(start = if (expanded) 36.dp else 24.dp, top = if (expanded) 56.dp else 40.dp),
         )
     }
 }
@@ -115,25 +113,43 @@ private fun MemorialCoverWheel(
     modifier: Modifier = Modifier,
 ) {
     var wheelRotation by remember { mutableFloatStateOf(0f) }
+    val stepDegrees = 360f / MemorialWheelItemCount
+    val animatedWheelRotation by animateFloatAsState(
+        targetValue = wheelRotation,
+        animationSpec = spring(
+            dampingRatio = 0.74f,
+            stiffness = 260f,
+        ),
+        label = "memorialWheelRotation",
+    )
     BoxWithConstraints(
         modifier = modifier
             .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    wheelRotation = (wheelRotation + dragAmount.y * 0.16f) % 360f
-                }
+                detectDragGestures(
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        wheelRotation += dragAmount.y * MemorialWheelDragDegreesPerPixel
+                    },
+                    onDragEnd = {
+                        val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
+                        wheelRotation = snappedRotation
+                    },
+                    onDragCancel = {
+                        val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
+                        wheelRotation = snappedRotation
+                    },
+                )
             },
     ) {
         val expanded = maxWidth >= 620.dp
         val panelMin = min(maxWidth.value, maxHeight.value).dp
-        val radius = panelMin * if (expanded) 0.74f else 0.7f
+        val radius = panelMin * if (expanded) 0.68f else 0.66f
         val innerRadius = radius * 0.63f
-        val centerX = maxWidth + panelMin * if (expanded) 0.08f else 0.06f
+        val centerX = maxWidth + panelMin * if (expanded) 0.06f else 0.04f
         val centerY = maxHeight * 0.5f
-        val cardWidth = if (expanded) 76.dp else 58.dp
-        val startDegrees = MemorialActiveSlotDegrees + wheelRotation
-        val stepDegrees = 360f / MemorialWheelItemCount
-        val activeIndex = activeWheelIndex(wheelRotation, stepDegrees)
+        val cardWidth = if (expanded) 88.dp else 66.dp
+        val startDegrees = MemorialActiveSlotDegrees + animatedWheelRotation
+        val activeIndex = activeWheelIndex(animatedWheelRotation, stepDegrees)
 
         MemorialWheelInnerDisc(
             centerX = centerX,
@@ -245,9 +261,25 @@ private fun MemorialWheelCover(
     active: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val animatedWidth by animateDpAsState(
+        targetValue = width,
+        animationSpec = spring(
+            dampingRatio = 0.78f,
+            stiffness = 320f,
+        ),
+        label = "memorialCoverWidth",
+    )
+    val animatedBorderAlpha by animateFloatAsState(
+        targetValue = if (active) 0.68f else 0.48f,
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = 360f,
+        ),
+        label = "memorialCoverBorderAlpha",
+    )
     val radians = Math.toRadians(degrees.toDouble())
-    val height = width / MemorialCoverAspect
-    val x = centerX + radius * cos(radians).toFloat() - width / 2f
+    val height = animatedWidth / MemorialCoverAspect
+    val x = centerX + radius * cos(radians).toFloat() - animatedWidth / 2f
     val y = centerY + radius * sin(radians).toFloat() - height / 2f
     Box(
         modifier = modifier,
@@ -255,13 +287,17 @@ private fun MemorialWheelCover(
         Box(
             modifier = Modifier
                 .offset(x = x, y = y)
-                .width(width)
+                .width(animatedWidth)
                 .aspectRatio(MemorialCoverAspect)
                 .graphicsLayer(rotationZ = degrees + 90f)
                 .background(ImperialParchment, RoundedCornerShape(if (active) 5.dp else 3.dp))
                 .border(
                     width = if (active) 1.4.dp else 0.8.dp,
-                    color = if (active) ImperialCinnabar.copy(alpha = 0.68f) else ImperialBronze.copy(alpha = 0.48f),
+                    color = if (active) {
+                        ImperialCinnabar.copy(alpha = animatedBorderAlpha)
+                    } else {
+                        ImperialBronze.copy(alpha = animatedBorderAlpha)
+                    },
                     shape = RoundedCornerShape(if (active) 5.dp else 3.dp),
                 ),
         ) {
@@ -415,40 +451,6 @@ private fun BriefingCopy(
             style = MaterialTheme.typography.bodyMedium,
             color = ImperialUmber.copy(alpha = 0.72f),
             modifier = Modifier.fillMaxWidth(if (expanded) 0.38f else 0.56f),
-        )
-    }
-}
-
-@Composable
-private fun RingCenterHint(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .size(154.dp)
-            .background(ImperialIvory.copy(alpha = 0.72f))
-            .border(1.dp, ImperialParchment)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.dashboard_placeholder),
-            contentDescription = null,
-            modifier = Modifier.size(42.dp),
-            colorFilter = ColorFilter.tint(ImperialBronze),
-            alpha = 0.82f,
-        )
-        Text(
-            text = "批阅",
-            style = MaterialTheme.typography.titleLarge,
-            color = ImperialUmber,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "奏折在此",
-            style = MaterialTheme.typography.bodySmall,
-            color = ImperialUmber.copy(alpha = 0.64f),
-            textAlign = TextAlign.Center,
         )
     }
 }
