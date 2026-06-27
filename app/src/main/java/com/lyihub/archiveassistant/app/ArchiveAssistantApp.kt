@@ -6,6 +6,8 @@ import android.content.Context
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +18,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.lyihub.archiveassistant.data.AiEnginePresetRepository
@@ -46,6 +51,8 @@ import com.lyihub.archiveassistant.ui.screens.ManagePane
 import com.lyihub.archiveassistant.ui.screens.MemorialBriefingPane
 import com.lyihub.archiveassistant.ui.screens.MemorialDemoOverlay
 import com.lyihub.archiveassistant.ui.screens.SettingsPane
+import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
+import com.lyihub.archiveassistant.ui.theme.ImperialIvory
 import kotlinx.coroutines.launch
 
 @Composable
@@ -672,97 +679,121 @@ private fun WideWorkspaceLayout(
     onOpenMemorialDemo: () -> Unit,
 ) {
     val state = stateStore.state
-    Row(modifier = Modifier.fillMaxSize()) {
-        HomePane(
-            title = "聚合拾遗",
-            parserInput = state.parserInput,
-            parserValidationMessage = state.parserValidationMessage,
-            recentTopics = state.searchedTopics,
-            itemsByTopic = state.itemsByTopic,
-            searchQuery = state.homeSearchQuery,
-            isSmartSummarizing = state.isSmartSummarizing,
-            smartSummarizationMessage = state.smartSummarizationMessage,
-            onParserInputChanged = stateStore::updateParserInput,
-            onSubmitParserInput = stateStore::submitParserInput,
-            onTopicSelected = stateStore::openTopic,
-            onOpenSettings = stateStore::openSettings,
-            onOpenManage = stateStore::openTopicManagement,
-            onCreateTopic = stateStore::openTopicManagementForCreate,
-            onSearchQueryChanged = stateStore::updateHomeSearchQuery,
-            onOpenClipboard = stateStore::openLatestClipboardDialog,
-            onOpenMemorialDemo = onOpenMemorialDemo,
-            modifier = Modifier.weight(0.93f),
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ImperialIvory),
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            HomePane(
+                title = "聚合拾遗",
+                parserInput = state.parserInput,
+                parserValidationMessage = state.parserValidationMessage,
+                recentTopics = state.searchedTopics,
+                itemsByTopic = state.itemsByTopic,
+                searchQuery = state.homeSearchQuery,
+                isSmartSummarizing = state.isSmartSummarizing,
+                smartSummarizationMessage = state.smartSummarizationMessage,
+                onParserInputChanged = stateStore::updateParserInput,
+                onSubmitParserInput = stateStore::submitParserInput,
+                onTopicSelected = stateStore::openTopic,
+                onOpenSettings = stateStore::openSettings,
+                onOpenManage = stateStore::openTopicManagement,
+                onCreateTopic = stateStore::openTopicManagementForCreate,
+                onSearchQueryChanged = stateStore::updateHomeSearchQuery,
+                onOpenClipboard = stateStore::openLatestClipboardDialog,
+                onOpenMemorialDemo = onOpenMemorialDemo,
+                modifier = Modifier.weight(1f),
+            )
 
-        Box(modifier = Modifier.weight(1.07f)) {
-            when (state.selectedPane) {
-                AppPane.TOPICS,
-                AppPane.CLASSIFICATION_REVIEW -> MemorialBriefingPane(
-                    pendingCount = state.topics.take(3).sumOf { topic ->
-                        ((state.itemsByTopic[topic.id]?.size ?: 0) + topic.title.length) % 3
-                    },
-                    onOpenMemorialDemo = onOpenMemorialDemo,
-                )
+            Box(modifier = Modifier.weight(1f)) {
+                when (state.selectedPane) {
+                    AppPane.TOPICS,
+                    AppPane.CLASSIFICATION_REVIEW -> MemorialBriefingPane(
+                        pendingCount = state.topics.take(3).sumOf { topic ->
+                            ((state.itemsByTopic[topic.id]?.size ?: 0) + topic.title.length) % 3
+                        },
+                        onOpenMemorialDemo = onOpenMemorialDemo,
+                    )
 
-                AppPane.DETAIL,
-                AppPane.CARD_DETAIL -> {
-                    val topic = state.selectedTopic
-                    if (topic != null) {
-                        DetailPane(
-                            topic = topic,
-                            items = state.filteredSelectedTopicItems,
-                            activeFilter = state.activeDetailFilter,
-                            searchQuery = state.homeSearchQuery,
-                            onBack = stateStore::closePanes,
-                            onFilterSelected = stateStore::selectFilter,
-                            onItemClick = stateStore::openCardModal,
-                            onAddItemClick = stateStore::openAddItemDialog,
-                        )
-                    } else {
-                        MemorialBriefingPane(
-                            pendingCount = 0,
-                            onOpenMemorialDemo = onOpenMemorialDemo,
-                        )
+                    AppPane.DETAIL,
+                    AppPane.CARD_DETAIL -> {
+                        val topic = state.selectedTopic
+                        if (topic != null) {
+                            DetailPane(
+                                topic = topic,
+                                items = state.filteredSelectedTopicItems,
+                                activeFilter = state.activeDetailFilter,
+                                searchQuery = state.homeSearchQuery,
+                                onBack = stateStore::closePanes,
+                                onFilterSelected = stateStore::selectFilter,
+                                onItemClick = stateStore::openCardModal,
+                                onAddItemClick = stateStore::openAddItemDialog,
+                            )
+                        } else {
+                            MemorialBriefingPane(
+                                pendingCount = 0,
+                                onOpenMemorialDemo = onOpenMemorialDemo,
+                            )
+                        }
                     }
+
+                    AppPane.SETTINGS -> SettingsPane(
+                        aiSettings = state.aiSettings,
+                        onAiSettingsChanged = onAiSettingsChanged,
+                        onBack = stateStore::closePanes,
+                        presets = presets,
+                        onPresetsChanged = onPresetsChanged,
+                        onDownloadModel = stateStore::downloadModel,
+                        onChooseModelFile = onChooseModelFile,
+                        onCancelDownload = stateStore::cancelDownload,
+                        onStartModel = stateStore::startModel,
+                        onStopModel = stateStore::stopModel,
+                        onBackendPreferenceChange = stateStore::updateBackendPreference,
+                        onRunBenchmark = stateStore::runBenchmark,
+                        localModelState = state.localModelState,
+                        benchmarkResult = state.benchmarkResult,
+                        isBenchmarkRunning = state.isBenchmarkRunning,
+                    )
+
+                    AppPane.MANAGE -> ManagePane(
+                        topics = state.topics,
+                        itemsByTopic = state.itemsByTopic,
+                        onBack = stateStore::closePanes,
+                        onTopicSelected = stateStore::openTopic,
+                        onCreateTopic = stateStore::openCreateTopicDialog,
+                        onRenameTopic = stateStore::openRenameTopicDialog,
+                        onDeleteTopic = stateStore::openDeleteConfirmDialog,
+                        onConfirmCreateTopic = stateStore::confirmCreateTopic,
+                        onConfirmRenameTopic = stateStore::confirmRenameTopic,
+                        onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
+                        onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
+                        onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
+                        topicNameDialogMode = state.topicNameDialogMode,
+                        topicNameDialogTopicId = state.topicNameDialogTopicId,
+                        topicValidationMessage = state.topicValidationMessage,
+                        deleteConfirmTopicId = state.deleteConfirmTopicId,
+                    )
                 }
-
-                AppPane.SETTINGS -> SettingsPane(
-                    aiSettings = state.aiSettings,
-                    onAiSettingsChanged = onAiSettingsChanged,
-                    onBack = stateStore::closePanes,
-                    presets = presets,
-                    onPresetsChanged = onPresetsChanged,
-                    onDownloadModel = stateStore::downloadModel,
-                    onChooseModelFile = onChooseModelFile,
-                    onCancelDownload = stateStore::cancelDownload,
-                    onStartModel = stateStore::startModel,
-                    onStopModel = stateStore::stopModel,
-                    onBackendPreferenceChange = stateStore::updateBackendPreference,
-                    onRunBenchmark = stateStore::runBenchmark,
-                    localModelState = state.localModelState,
-                    benchmarkResult = state.benchmarkResult,
-                    isBenchmarkRunning = state.isBenchmarkRunning,
-                )
-
-                AppPane.MANAGE -> ManagePane(
-                    topics = state.topics,
-                    itemsByTopic = state.itemsByTopic,
-                    onBack = stateStore::closePanes,
-                    onTopicSelected = stateStore::openTopic,
-                    onCreateTopic = stateStore::openCreateTopicDialog,
-                    onRenameTopic = stateStore::openRenameTopicDialog,
-                    onDeleteTopic = stateStore::openDeleteConfirmDialog,
-                    onConfirmCreateTopic = stateStore::confirmCreateTopic,
-                    onConfirmRenameTopic = stateStore::confirmRenameTopic,
-                    onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
-                    onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
-                    onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
-                    topicNameDialogMode = state.topicNameDialogMode,
-                    topicNameDialogTopicId = state.topicNameDialogTopicId,
-                    topicValidationMessage = state.topicValidationMessage,
-                    deleteConfirmTopicId = state.deleteConfirmTopicId,
-                )
             }
         }
+
+        WideCenterDebugGuide(modifier = Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun WideCenterDebugGuide(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val x = size.width / 2f
+        val dash = 10.dp.toPx()
+        val gap = 8.dp.toPx()
+        drawLine(
+            color = ImperialCinnabar.copy(alpha = 0.52f),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, gap), 0f),
+        )
     }
 }

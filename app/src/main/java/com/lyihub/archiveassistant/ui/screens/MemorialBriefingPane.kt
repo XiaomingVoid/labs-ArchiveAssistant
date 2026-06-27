@@ -54,9 +54,9 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-private const val MemorialCoverAspect = 10f / 22f
+private const val MemorialCoverAspect = 1f / 2f
 private const val MemorialWheelItemCount = 24
-private const val MemorialActiveSlotDegrees = 225f
+private const val MemorialActiveSlotDegrees = 240f
 private const val MemorialWheelDragDegreesPerPixel = -0.18f
 private const val MemorialWheelActiveScale = 1.58f
 private const val MemorialWheelFocusHalfRangeDegrees = 24f
@@ -149,7 +149,7 @@ private fun MemorialCoverWheel(
         val radius = panelMin * if (expanded) 0.68f else 0.66f
         val innerRadius = radius * 0.63f
         val centerX = maxWidth + panelMin * if (expanded) 0.02f else 0.0f
-        val centerY = maxHeight * if (expanded) 0.56f else 0.55f
+        val centerY = maxHeight * if (expanded) 0.61f else 0.59f
         val cardWidth = if (expanded) 94.dp else 72.dp
         val startDegrees = MemorialActiveSlotDegrees + animatedWheelRotation
 

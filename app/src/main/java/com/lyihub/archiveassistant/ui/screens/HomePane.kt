@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.Topic
-import com.lyihub.archiveassistant.ui.components.PaneContainer
 import com.lyihub.archiveassistant.ui.theme.ImperialBronze
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
 import com.lyihub.archiveassistant.ui.theme.ImperialIvory
@@ -65,7 +64,6 @@ private val PalaceGold = ImperialUmber
 private val PalaceGoldBlock = ImperialLightGold
 private val PalaceInk = ImperialUmber
 private val PalacePaper = ImperialIvory
-private val PalaceGridLine = ImperialBronze
 
 private val MinistryTicketShape = GenericShape { size, _ ->
     val cut = size.height * 0.16f
@@ -122,81 +120,74 @@ fun HomePane(
     val pendingCount = pendingCount(recentTopics, itemsByTopic)
     val folders = dashboardFolders(recentTopics, itemsByTopic)
 
-    PaneContainer(
+    BoxWithConstraints(
         modifier = modifier
             .testTag("home-pane")
+            .fillMaxSize()
             .background(PalaceGreenDeep),
     ) {
-        BoxWithConstraints(
+        val expanded = maxWidth >= 720.dp
+        val horizontalPadding = if (expanded) 28.dp else 16.dp
+        val topPadding = if (expanded) 54.dp else 36.dp
+        val bottomPadding = if (expanded) 40.dp else 28.dp
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .weight(1f)
-                .background(PalaceGreenDeep),
+                .verticalScroll(rememberScrollState()),
         ) {
-            val expanded = maxWidth >= 720.dp
-            val outerPadding = if (expanded) 18.dp else 12.dp
-            val outerTopPadding = if (expanded) 30.dp else 24.dp
-            val outerBottomPadding = if (expanded) 24.dp else 20.dp
-            val frameHeight = maxHeight + if (expanded) 86.dp else 132.dp
-            Box(
+            HomeContentColumn(
+                expanded = expanded,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .padding(
+                        start = horizontalPadding,
+                        top = topPadding,
+                        end = horizontalPadding,
+                        bottom = bottomPadding,
+                    )
+                    .fillMaxWidth(),
             ) {
-                MosaicFrame(
-                    modifier = Modifier
-                        .padding(
-                            start = outerPadding,
-                            top = outerTopPadding,
-                            end = outerPadding,
-                            bottom = outerBottomPadding,
-                        )
-                        .fillMaxWidth()
-                        .height(frameHeight),
-                ) {
-                    if (expanded) {
-                        ExpandedMosaic(
-                            appTitle = title,
-                            totalItems = totalItems,
-                            pendingCount = pendingCount,
-                            folders = folders,
-                            parserInput = parserInput,
-                            validationMessage = parserValidationMessage,
-                            smartSummarizationMessage = smartSummarizationMessage,
-                            searchQuery = searchQuery,
-                            isSmartSummarizing = isSmartSummarizing,
-                            onInputChanged = onParserInputChanged,
-                            onSubmit = onSubmitParserInput,
-                            onOpenClipboard = onOpenClipboard,
-                            onOpenMemorialDemo = onOpenMemorialDemo,
-                            onSearchQueryChanged = onSearchQueryChanged,
-                            onTopicSelected = onTopicSelected,
-                            onOpenManage = onOpenManage,
-                            onCreateTopic = onCreateTopic,
-                            onOpenSettings = onOpenSettings,
-                        )
-                    } else {
-                        CompactMosaic(
-                            appTitle = title,
-                            totalItems = totalItems,
-                            pendingCount = pendingCount,
-                            folders = folders,
-                            parserInput = parserInput,
-                            validationMessage = parserValidationMessage,
-                            smartSummarizationMessage = smartSummarizationMessage,
-                            searchQuery = searchQuery,
-                            isSmartSummarizing = isSmartSummarizing,
-                            onInputChanged = onParserInputChanged,
-                            onSubmit = onSubmitParserInput,
-                            onOpenClipboard = onOpenClipboard,
-                            onOpenMemorialDemo = onOpenMemorialDemo,
-                            onSearchQueryChanged = onSearchQueryChanged,
-                            onTopicSelected = onTopicSelected,
-                            onOpenManage = onOpenManage,
-                            onCreateTopic = onCreateTopic,
-                            onOpenSettings = onOpenSettings,
-                        )
-                    }
+                if (expanded) {
+                    ExpandedMosaic(
+                        appTitle = title,
+                        totalItems = totalItems,
+                        pendingCount = pendingCount,
+                        folders = folders,
+                        parserInput = parserInput,
+                        validationMessage = parserValidationMessage,
+                        smartSummarizationMessage = smartSummarizationMessage,
+                        searchQuery = searchQuery,
+                        isSmartSummarizing = isSmartSummarizing,
+                        onInputChanged = onParserInputChanged,
+                        onSubmit = onSubmitParserInput,
+                        onOpenClipboard = onOpenClipboard,
+                        onOpenMemorialDemo = onOpenMemorialDemo,
+                        onSearchQueryChanged = onSearchQueryChanged,
+                        onTopicSelected = onTopicSelected,
+                        onOpenManage = onOpenManage,
+                        onCreateTopic = onCreateTopic,
+                        onOpenSettings = onOpenSettings,
+                    )
+                } else {
+                    CompactMosaic(
+                        appTitle = title,
+                        totalItems = totalItems,
+                        pendingCount = pendingCount,
+                        folders = folders,
+                        parserInput = parserInput,
+                        validationMessage = parserValidationMessage,
+                        smartSummarizationMessage = smartSummarizationMessage,
+                        searchQuery = searchQuery,
+                        isSmartSummarizing = isSmartSummarizing,
+                        onInputChanged = onParserInputChanged,
+                        onSubmit = onSubmitParserInput,
+                        onOpenClipboard = onOpenClipboard,
+                        onOpenMemorialDemo = onOpenMemorialDemo,
+                        onSearchQueryChanged = onSearchQueryChanged,
+                        onTopicSelected = onTopicSelected,
+                        onOpenManage = onOpenManage,
+                        onCreateTopic = onCreateTopic,
+                        onOpenSettings = onOpenSettings,
+                    )
                 }
             }
         }
@@ -204,15 +195,14 @@ fun HomePane(
 }
 
 @Composable
-private fun MosaicFrame(
+private fun HomeContentColumn(
+    expanded: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .background(PalaceGridLine)
-            .border(1.dp, PalaceGridLine),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
         content = content,
     )
 }
@@ -246,13 +236,13 @@ private fun ColumnScope.ExpandedMosaic(
         onOpenSettings = onOpenSettings,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.9f),
+            .height(154.dp),
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.88f),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+            .height(128.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PalaceActionCell(
             title = "宣拾遗",
@@ -288,8 +278,8 @@ private fun ColumnScope.ExpandedMosaic(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.84f),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+            .height(120.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         MemorialCell(
             pendingCount = pendingCount,
@@ -309,7 +299,7 @@ private fun ColumnScope.ExpandedMosaic(
             onTopicSelected = onTopicSelected,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.74f),
+                .height(118.dp),
             compact = false,
         )
     }
@@ -344,13 +334,13 @@ private fun ColumnScope.CompactMosaic(
         onOpenSettings = onOpenSettings,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(1.02f),
+            .height(140.dp),
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.82f),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+            .height(112.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PalaceActionCell(
             title = "宣拾遗",
@@ -383,16 +373,16 @@ private fun ColumnScope.CompactMosaic(
         onInputChanged = onInputChanged,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.8f),
+            .height(104.dp),
     )
     MemorialCell(
         pendingCount = pendingCount,
         onClick = onOpenMemorialDemo,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.78f),
+            .height(104.dp),
     )
-    WorkflowRow(modifier = Modifier.weight(0.58f))
+    WorkflowRow(modifier = Modifier.height(76.dp))
     MinistryHeaderRow(
         onCreateTopic = onCreateTopic,
         onOpenManage = onOpenManage,
@@ -404,7 +394,7 @@ private fun ColumnScope.CompactMosaic(
             onTopicSelected = onTopicSelected,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.66f),
+                .height(104.dp),
             compact = true,
         )
     }
@@ -421,7 +411,7 @@ private fun HomeHeaderRow(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TitleCell(
             appTitle = appTitle,
@@ -750,7 +740,7 @@ private fun MemorialCell(
 private fun WorkflowRow(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         WorkflowCell("中书", "拾取、摘要、拟题", Modifier.weight(1f))
         WorkflowCell("门下", "筛选、递奏、待批", Modifier.weight(1f))
@@ -797,7 +787,7 @@ private fun MinistryHeaderRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         MosaicCell(
             modifier = Modifier
@@ -996,7 +986,9 @@ private fun MosaicCell(
 ) {
     Box(
         modifier = modifier
-            .background(color),
+            .clip(MinistryTicketShape)
+            .background(color, MinistryTicketShape)
+            .border(1.dp, ImperialBronze.copy(alpha = 0.46f), MinistryTicketShape),
     ) {
         BoxScopeWithContentColor(this, contentColor).content()
     }
