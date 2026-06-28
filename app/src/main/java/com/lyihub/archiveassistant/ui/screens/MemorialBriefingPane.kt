@@ -177,20 +177,20 @@ private fun MemorialCoverWheel(
         val wheelCenterX = maxWidth + 58.dp
         val centerY = maxHeight * 0.67f
         val cardWidth = 72.dp
-        val pendingStampHeight = 214.dp
-        val pendingStampWidth = 82.dp
+        val pendingStampHeight = 142.dp
+        val pendingStampWidth = 58.dp
         val startDegrees = MemorialActiveSlotDegrees + animatedWheelRotation
 
         MemorialWheelInnerDisc(
             centerX = wheelCenterX,
             centerY = centerY,
             radius = innerRadius,
+            contentOffsetX = -innerRadius * 0.54f,
             modifier = Modifier.fillMaxSize(),
         )
         PendingVerticalNote(
-            pendingCount = pendingCount,
             modifier = Modifier
-                .offset(x = 18.dp, y = centerY - pendingStampHeight / 2f)
+                .offset(x = 20.dp, y = centerY - pendingStampHeight / 2f)
                 .width(pendingStampWidth)
                 .height(pendingStampHeight),
         )
@@ -227,7 +227,6 @@ private fun MemorialCoverWheel(
 
 @Composable
 private fun PendingVerticalNote(
-    pendingCount: Int,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -241,14 +240,14 @@ private fun PendingVerticalNote(
             contentScale = ContentScale.FillBounds,
         )
         Text(
-            text = "待\n批\n·\n$pendingCount\n封\n奏\n章",
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = ImperialStampFont),
+            text = "朕\n阅\n中",
+            style = MaterialTheme.typography.headlineLarge.copy(fontFamily = ImperialStampFont),
             color = Color.White,
             textAlign = TextAlign.Center,
-            lineHeight = 22.sp,
+            lineHeight = 28.sp,
             modifier = Modifier
                 .align(Alignment.Center)
-                .width(44.dp),
+                .width(30.dp),
         )
     }
 }
@@ -383,6 +382,7 @@ private fun MemorialWheelInnerDisc(
     centerX: Dp,
     centerY: Dp,
     radius: Dp,
+    contentOffsetX: Dp,
     modifier: Modifier = Modifier,
 ) {
     val diameter = radius * 2f
@@ -398,7 +398,7 @@ private fun MemorialWheelInnerDisc(
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(x = radius * 0.05f),
+                    .offset(x = contentOffsetX),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

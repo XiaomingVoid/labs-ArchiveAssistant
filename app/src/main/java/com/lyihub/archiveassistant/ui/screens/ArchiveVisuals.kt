@@ -1,8 +1,14 @@
 package com.lyihub.archiveassistant.ui.screens
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.ui.theme.ImperialBronze
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
@@ -28,18 +34,32 @@ internal data class ArchiveTileVisual(
     val borderColor: Color,
 )
 
-internal val ArchiveCutCornerShape = GenericShape { size, _ ->
-    val notch = size.minDimension * 0.08f
-    moveTo(notch, 0f)
-    lineTo(size.width - notch, 0f)
-    quadraticTo(size.width - notch, notch, size.width, notch)
-    lineTo(size.width, size.height - notch)
-    quadraticTo(size.width - notch, size.height - notch, size.width - notch, size.height)
-    lineTo(notch, size.height)
-    quadraticTo(notch, size.height - notch, 0f, size.height - notch)
-    lineTo(0f, notch)
-    quadraticTo(notch, notch, notch, 0f)
-    close()
+internal val ArchiveCutCornerShape: Shape = FixedCutCornerShape(16)
+
+private class FixedCutCornerShape(
+    private val notchDp: Int,
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val notch = with(density) { notchDp.dp.toPx() }
+            .coerceAtMost(size.minDimension * 0.28f)
+        val path = Path().apply {
+            moveTo(notch, 0f)
+            lineTo(size.width - notch, 0f)
+            quadraticTo(size.width - notch, notch, size.width, notch)
+            lineTo(size.width, size.height - notch)
+            quadraticTo(size.width - notch, size.height - notch, size.width - notch, size.height)
+            lineTo(notch, size.height)
+            quadraticTo(notch, size.height - notch, 0f, size.height - notch)
+            lineTo(0f, notch)
+            quadraticTo(notch, notch, notch, 0f)
+            close()
+        }
+        return Outline.Generic(path)
+    }
 }
 
 internal val ZhongshuTileVisual = ArchiveTileVisual(
