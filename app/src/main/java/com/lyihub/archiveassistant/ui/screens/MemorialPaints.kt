@@ -15,7 +15,7 @@ internal class MemorialPaints(
 ) {
     val background = Paint().apply {
         style = Paint.Style.FILL
-        color = AndroidColor.rgb(242, 242, 242)
+        color = STAMP_PAPER
     }
 
     val article = Paint(Paint.ANTI_ALIAS_FLAG).apply {

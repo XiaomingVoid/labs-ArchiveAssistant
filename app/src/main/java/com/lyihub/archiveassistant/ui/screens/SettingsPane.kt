@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -49,6 +48,8 @@ import com.lyihub.archiveassistant.domain.GEMMA_4_E4B_IT
 import com.lyihub.archiveassistant.domain.InferenceBackend
 import com.lyihub.archiveassistant.domain.LocalModelState
 import com.lyihub.archiveassistant.domain.LocalModelStatus
+import com.lyihub.archiveassistant.ui.components.ArchiveDialog
+import com.lyihub.archiveassistant.ui.components.ArchiveDialogAction
 import com.lyihub.archiveassistant.ui.components.PaneContainer
 import com.lyihub.archiveassistant.ui.components.PaneContentPadding
 import com.lyihub.archiveassistant.ui.components.PaneDivider
@@ -606,27 +607,16 @@ fun SettingsPane(
     }
 
     if (savePresetDialogVisible) {
-        AlertDialog(
+        ArchiveDialog(
+            title = "保存预设",
             onDismissRequest = { savePresetDialogVisible = false },
-            title = { Text("保存预设") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = newPresetName,
-                        onValueChange = {
-                            newPresetName = it
-                            savePresetError = null
-                        },
-                        label = { Text("预设名称") },
-                        singleLine = true,
-                        isError = savePresetError != null,
-                        supportingText = savePresetError?.let { { Text(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
+            actions = {
+                ArchiveDialogAction(
+                    label = "取消",
+                    onClick = { savePresetDialogVisible = false },
+                )
+                ArchiveDialogAction(
+                    label = "保存",
                     onClick = {
                         val name = newPresetName.trim()
                         when {
@@ -643,17 +633,24 @@ fun SettingsPane(
                             }
                         }
                     },
-                ) {
-                    Text("保存")
-                }
+                    primary = true,
+                )
             },
-            dismissButton = {
-                TextButton(
-                    onClick = { savePresetDialogVisible = false },
-                ) {
-                    Text("取消")
+        ) {
+                Column {
+                    OutlinedTextField(
+                        value = newPresetName,
+                        onValueChange = {
+                            newPresetName = it
+                            savePresetError = null
+                        },
+                        label = { Text("预设名称") },
+                        singleLine = true,
+                        isError = savePresetError != null,
+                        supportingText = savePresetError?.let { { Text(it) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-            },
-        )
+        }
     }
 }

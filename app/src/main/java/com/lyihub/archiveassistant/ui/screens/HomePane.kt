@@ -1,5 +1,6 @@
 package com.lyihub.archiveassistant.ui.screens
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,21 +9,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -31,11 +32,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -50,31 +54,41 @@ import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.Topic
-import com.lyihub.archiveassistant.ui.theme.ImperialBronze
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
 import com.lyihub.archiveassistant.ui.theme.ImperialIvory
-import com.lyihub.archiveassistant.ui.theme.ImperialLightGold
-import com.lyihub.archiveassistant.ui.theme.ImperialParchment
 import com.lyihub.archiveassistant.ui.theme.ImperialUmber
 
-private val HomePanel = ImperialParchment
-private val HomeBackground = ImperialIvory
-private val HomeDeepInk = ImperialUmber
-private val HomeGold = ImperialUmber
-private val HomeGoldBlock = ImperialLightGold
 private val HomeInk = ImperialUmber
 private val HomePaper = ImperialIvory
 
 private val MinistryTicketShape = GenericShape { size, _ ->
-    val cut = size.height * 0.16f
-    moveTo(cut, 0f)
-    lineTo(size.width - cut, 0f)
-    lineTo(size.width, cut)
-    lineTo(size.width, size.height - cut)
-    lineTo(size.width - cut, size.height)
-    lineTo(cut, size.height)
-    lineTo(0f, size.height - cut)
-    lineTo(0f, cut)
+    val notchRadius = (size.height * 0.25f).coerceIn(12f, 21f)
+    val toothRadius = (size.height * 0.08f).coerceIn(5f, 8.5f)
+    val toothCount = 8
+    val toothPitch = size.width / toothCount
+
+    moveTo(0f, 0f)
+    repeat(toothCount) { index ->
+        val left = toothPitch * index
+        val mid = left + toothPitch * 0.5f
+        val right = left + toothPitch
+        lineTo(mid - toothRadius, 0f)
+        quadraticTo(mid, toothRadius, mid + toothRadius, 0f)
+        lineTo(right, 0f)
+    }
+    lineTo(size.width, size.height * 0.5f - notchRadius)
+    quadraticTo(size.width - notchRadius, size.height * 0.5f, size.width, size.height * 0.5f + notchRadius)
+    lineTo(size.width, size.height)
+    for (index in toothCount - 1 downTo 0) {
+        val right = toothPitch * (index + 1)
+        val mid = toothPitch * index + toothPitch * 0.5f
+        val left = toothPitch * index
+        lineTo(mid + toothRadius, size.height)
+        quadraticTo(mid, size.height - toothRadius, mid - toothRadius, size.height)
+        lineTo(left.coerceAtLeast(0f), size.height)
+    }
+    lineTo(0f, size.height * 0.5f + notchRadius)
+    quadraticTo(notchRadius, size.height * 0.5f, 0f, size.height * 0.5f - notchRadius)
     close()
 }
 
@@ -104,8 +118,9 @@ fun HomePane(
     searchQuery: String,
     onTopicSelected: (String) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenManage: () -> Unit,
     onCreateTopic: () -> Unit,
+    onRenameTopic: (String) -> Unit = {},
+    onDeleteTopic: (String) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit,
     onOpenClipboard: () -> Unit,
     onOpenMemorialDemo: (() -> Unit)? = null,
@@ -114,12 +129,12 @@ fun HomePane(
 ) {
     val pendingCount = pendingCount(recentTopics, itemsByTopic)
     val folders = dashboardFolders(recentTopics, itemsByTopic, searchQuery)
+    var isManagingMinistries by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .testTag("home-pane")
-            .fillMaxSize()
-            .background(HomeBackground),
+            .fillMaxSize(),
     ) {
         Box(
             modifier = Modifier
@@ -129,10 +144,10 @@ fun HomePane(
             HomeContentColumn(
                 modifier = Modifier
                     .padding(
-                        start = 16.dp,
-                        top = 36.dp,
-                        end = 16.dp,
-                        bottom = 28.dp,
+                        start = 24.dp,
+                        top = 56.dp,
+                        end = 24.dp,
+                        bottom = 36.dp,
                     )
                     .fillMaxWidth(),
             ) {
@@ -148,8 +163,11 @@ fun HomePane(
                     onSearchQueryChanged = onSearchQueryChanged,
                     onTopicSelected = onTopicSelected,
                     onOpenSettings = onOpenSettings,
-                    onOpenManage = onOpenManage,
                     onCreateTopic = onCreateTopic,
+                    onRenameTopic = onRenameTopic,
+                    onDeleteTopic = onDeleteTopic,
+                    isManagingMinistries = isManagingMinistries,
+                    onToggleManage = { isManagingMinistries = !isManagingMinistries },
                 )
             }
         }
@@ -163,7 +181,7 @@ private fun HomeContentColumn(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         content = content,
     )
 }
@@ -181,48 +199,41 @@ private fun ColumnScope.HomeMosaic(
     onSearchQueryChanged: (String) -> Unit,
     onTopicSelected: (String) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenManage: () -> Unit,
     onCreateTopic: () -> Unit,
+    onRenameTopic: (String) -> Unit,
+    onDeleteTopic: (String) -> Unit,
+    isManagingMinistries: Boolean,
+    onToggleManage: () -> Unit,
 ) {
     HomeHeaderRow(
         appTitle = appTitle,
         onOpenSettings = onOpenSettings,
         modifier = Modifier
-            .fillMaxWidth()
-            .height(118.dp),
+            .fillMaxWidth(),
     )
-    PrimaryActionRow(
+    PalaceDashboardBlock(
         pendingCount = pendingCount,
         onOpenClipboard = onOpenClipboard,
         onOpenMemorialDemo = onOpenMemorialDemo,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(92.dp),
-    )
-    SearchCell(
         searchQuery = searchQuery,
         onSearchQueryChanged = onSearchQueryChanged,
         validationMessage = validationMessage,
         smartSummarizationMessage = smartSummarizationMessage,
         modifier = Modifier
-            .fillMaxWidth()
-            .height(94.dp),
+            .fillMaxWidth(),
     )
-    WorkflowRow(modifier = Modifier.height(72.dp))
-    MinistryControlRow(
+    MinistryStampStack(
         searchQuery = searchQuery,
         resultCount = folders.count { it.topic != null },
-        onCreateTopic = onCreateTopic,
-        onOpenManage = onOpenManage,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp),
-    )
-    FolderResultList(
         folders = folders,
-        searchQuery = searchQuery,
         onTopicSelected = onTopicSelected,
-        compact = true,
+        onCreateTopic = onCreateTopic,
+        onRenameTopic = onRenameTopic,
+        onDeleteTopic = onDeleteTopic,
+        isManagingMinistries = isManagingMinistries,
+        onToggleManage = onToggleManage,
+        modifier = Modifier
+            .fillMaxWidth(),
     )
 }
 
@@ -245,40 +256,40 @@ private fun TitleCell(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    PlainCell(
-        modifier = modifier.fillMaxSize(),
-        color = HomePanel,
-        contentColor = HomeGold,
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
     ) {
         IconButton(
             onClick = onOpenSettings,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(6.dp)
                 .testTag("settings-trigger"),
         ) {
             Icon(
                 imageVector = Icons.Default.Settings,
                 contentDescription = "设置",
-                tint = HomeGold.copy(alpha = 0.86f),
+                tint = Color.Black.copy(alpha = 0.82f),
             )
         }
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 22.dp, end = 72.dp),
+                .padding(end = 64.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 text = appTitle,
                 style = MaterialTheme.typography.displayLarge,
-                color = HomeGold,
+                color = Color.Black,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
             )
             Text(
                 text = "中书录入 · 批奏折 · 尚书归档",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ImperialUmber.copy(alpha = 0.72f),
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.Black.copy(alpha = 0.72f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -287,61 +298,61 @@ private fun TitleCell(
 }
 
 @Composable
-private fun PalaceActionCell(
+private fun HomeFeatureCell(
     title: String,
     subtitle: String,
-    label: String,
-    color: Color,
+    label: String = "",
     contentColor: Color,
+    @DrawableRes ornamentRes: Int,
+    tileVisual: ArchiveTileVisual,
     onClick: () -> Unit,
     testTag: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    large: Boolean = false,
 ) {
-    PlainCell(
+    CutoutCell(
         modifier = modifier
             .fillMaxSize()
             .clickable(enabled = enabled, onClick = onClick)
             .testTag(testTag),
-        color = if (enabled) color else ImperialParchment,
         contentColor = contentColor,
+        tileVisual = tileVisual,
     ) {
-        DecorativePlaceholder(
-            imageRes = if (label == "中书") {
-                R.drawable.imperial_ornament_lantern
-            } else {
-                R.drawable.imperial_ornament_ruyi
-            },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(10.dp)
-                .size(46.dp),
-            alpha = 0.22f,
+        HomeOrnament(
+            imageRes = ornamentRes,
             tint = contentColor,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = contentColor.copy(alpha = 0.7f),
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .align(Alignment.CenterEnd)
+                .offset(x = if (large) 22.dp else 10.dp)
+                .size(if (large) 132.dp else 68.dp),
+            alpha = if (large) 0.5f else 0.58f,
         )
+        if (label.isNotBlank()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor.copy(alpha = 0.7f),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            )
+        }
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(12.dp),
+                .padding(if (large) 18.dp else 12.dp),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
+                style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
                 color = contentColor,
                 fontWeight = FontWeight.Normal,
-                maxLines = 1,
+                maxLines = if (large) 2 else 1,
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
+                style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
                 color = contentColor.copy(alpha = 0.76f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -351,31 +362,98 @@ private fun PalaceActionCell(
 }
 
 @Composable
-private fun PrimaryActionRow(
+private fun PalaceDashboardBlock(
     pendingCount: Int,
     onOpenClipboard: () -> Unit,
     onOpenMemorialDemo: (() -> Unit)?,
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
+    validationMessage: String?,
+    smartSummarizationMessage: String?,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        PalaceActionCell(
-            title = "宣拾遗",
-            subtitle = "读取剪切板",
-            label = "中书",
-            color = HomeGoldBlock,
-            contentColor = HomeDeepInk,
-            modifier = Modifier.weight(1f),
-            onClick = onOpenClipboard,
-            testTag = "clipboard-button",
-        )
-        MemorialCell(
-            pendingCount = pendingCount,
-            onClick = onOpenMemorialDemo,
-            modifier = Modifier.weight(1f),
-        )
+        BoxWithConstraints(modifier = modifier) {
+        val gap = 12.dp
+        val bottomSquareWidth = (maxWidth - gap) / 3f
+        val searchRowHeight = bottomSquareWidth
+        val topColumnWidth = (maxWidth - gap) / 2f
+        val topRowHeight = topColumnWidth
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(topRowHeight),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(gap),
+                ) {
+                    HomeFeatureCell(
+                        title = "中书录入",
+                        subtitle = "拾取、摘要、拟题",
+                        contentColor = Color.White,
+                        ornamentRes = R.drawable.imperial_ornament_lantern,
+                        tileVisual = ZhongshuTileVisual,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        testTag = "workflow-zhongshu-cell",
+                        enabled = false,
+                    )
+                    HomeFeatureCell(
+                        title = "门下递奏",
+                        subtitle = "筛选、预览、待批",
+                        contentColor = Color.White,
+                        ornamentRes = R.drawable.imperial_ornament_ruyi,
+                        tileVisual = MenxiaTileVisual,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        testTag = "workflow-menxia-cell",
+                        enabled = false,
+                    )
+                }
+                MemorialCell(
+                    pendingCount = pendingCount,
+                    onClick = onOpenMemorialDemo,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(topRowHeight),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(searchRowHeight),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                HomeFeatureCell(
+                    title = "宣拾遗",
+                    subtitle = "读取剪切板",
+                    contentColor = Color.White,
+                    ornamentRes = R.drawable.imperial_ornament_gourd,
+                    tileVisual = ClipboardTileVisual,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(searchRowHeight),
+                    onClick = onOpenClipboard,
+                    testTag = "clipboard-button",
+                )
+                SearchCell(
+                    searchQuery = searchQuery,
+                    onSearchQueryChanged = onSearchQueryChanged,
+                    validationMessage = validationMessage,
+                    smartSummarizationMessage = smartSummarizationMessage,
+                    modifier = Modifier
+                        .weight(2f)
+                        .height(searchRowHeight),
+                )
+            }
+        }
     }
 }
 
@@ -386,16 +464,16 @@ private fun SearchCell(
     validationMessage: String?,
     smartSummarizationMessage: String?,
     modifier: Modifier = Modifier,
-) {
-    PlainCell(
-        modifier = modifier.fillMaxSize(),
-        color = HomePaper,
-        contentColor = HomeInk,
     ) {
+        CutoutCell(
+            modifier = modifier.fillMaxSize(),
+            contentColor = Color.White,
+            tileVisual = SearchTileVisual,
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
@@ -406,20 +484,20 @@ private fun SearchCell(
                 Text(
                     text = "藏经阁",
                     style = MaterialTheme.typography.titleLarge,
-                    color = HomeInk,
+                    color = Color.White,
                     fontWeight = FontWeight.Normal,
                 )
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "搜索",
-                    tint = HomeInk.copy(alpha = 0.68f),
+                    tint = Color.White.copy(alpha = 0.76f),
                 )
             }
             BasicTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = HomeInk),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("home-search-input"),
@@ -427,14 +505,14 @@ private fun SearchCell(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(ImperialIvory.copy(alpha = 0.74f))
+                            .background(Color.White.copy(alpha = 0.18f))
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
                         if (searchQuery.isBlank()) {
                             Text(
                                 text = "查找主题或资料...",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = HomeInk.copy(alpha = 0.44f),
+                                color = Color.White.copy(alpha = 0.62f),
                             )
                         }
                         innerTextField()
@@ -449,7 +527,7 @@ private fun SearchCell(
                     "正在筛选相关文件夹"
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = if (message == null) HomeInk.copy(alpha = 0.58f) else ImperialCinnabar,
+                color = Color.White.copy(alpha = if (message == null) 0.72f else 0.9f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -463,39 +541,39 @@ private fun MemorialCell(
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    PlainCell(
+    CutoutCell(
         modifier = modifier
             .fillMaxSize()
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .testTag("memorial-entry-card"),
-        color = HomeGoldBlock,
-        contentColor = HomeDeepInk,
+        contentColor = Color.White,
+        tileVisual = MemorialTileVisual,
     ) {
-        DecorativePlaceholder(
-            imageRes = R.drawable.imperial_ornament_gourd,
+        HomeOrnament(
+            imageRes = R.drawable.imperial_ornament_gate_guard,
+            tint = Color.White,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 8.dp)
-                .size(60.dp),
-            alpha = 0.18f,
-            tint = HomeDeepInk,
+                .offset(x = 24.dp)
+                .size(138.dp),
+            alpha = 0.48f,
         )
         Column(
             modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 12.dp),
+                .align(Alignment.BottomStart)
+                .padding(18.dp),
         ) {
             Text(
                 text = "批奏折",
-                style = MaterialTheme.typography.headlineSmall,
-                color = HomeDeepInk,
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
             )
             Text(
                 text = "今日 $pendingCount 封待批奏章",
-                style = MaterialTheme.typography.bodyMedium,
-                color = HomeDeepInk.copy(alpha = 0.72f),
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White.copy(alpha = 0.76f),
                 maxLines = 1,
             )
         }
@@ -503,140 +581,108 @@ private fun MemorialCell(
 }
 
 @Composable
-private fun WorkflowRow(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        WorkflowCell("中书", "拾取、摘要、拟题", Modifier.weight(1f))
-        WorkflowCell("门下", "筛选、递奏、待批", Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun WorkflowCell(title: String, subtitle: String, modifier: Modifier = Modifier) {
-    PlainCell(
-        modifier = modifier.fillMaxSize(),
-        color = HomePanel,
-        contentColor = HomeGold,
-    ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 12.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = HomeGold,
-                fontWeight = FontWeight.Normal,
-                maxLines = 1,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = ImperialUmber.copy(alpha = 0.62f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MinistryControlRow(
+private fun MinistryStampStack(
     searchQuery: String,
     resultCount: Int,
+    folders: List<DashboardFolder>,
+    onTopicSelected: (String) -> Unit,
     onCreateTopic: () -> Unit,
-    onOpenManage: () -> Unit,
+    onRenameTopic: (String) -> Unit,
+    onDeleteTopic: (String) -> Unit,
+    isManagingMinistries: Boolean,
+    onToggleManage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    val stackShadowShape = RoundedCornerShape(8.dp)
+    Column(
+        modifier = modifier
+            .shadow(11.dp, stackShadowShape, clip = false)
+            .testTag("ministry-stamp-stack"),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        MinistryActionButton(
-            title = "尚书省",
-            subtitle = if (searchQuery.isBlank()) "六个固定文件夹" else "检出 $resultCount 类",
-            onClick = {},
-            testTag = "ministry-header-cell",
-            modifier = Modifier.weight(1f),
-            enabled = false,
-            highlight = true,
-        )
-        MinistryActionButton(
-            title = "新建",
-            subtitle = "新立一夹",
-            onClick = onCreateTopic,
-            testTag = "home-create-topic-button",
-            modifier = Modifier.weight(1f),
-        )
-        MinistryActionButton(
-            title = "管理",
-            subtitle = "整理六类",
-            onClick = onOpenManage,
-            testTag = "manage-button",
-            modifier = Modifier.weight(1f),
+        MinistryTicketSurface(
+            modifier = Modifier.fillMaxWidth(),
+            borderAlpha = 0.28f,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 14.dp, end = 10.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "「尚书省」",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ImperialCinnabar,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                }
+                MinistryHeaderAction(
+                    title = "新建",
+                    onClick = onCreateTopic,
+                    testTag = "home-create-topic-button",
+                )
+                MinistryHeaderAction(
+                    title = if (isManagingMinistries) "完成" else "管理",
+                    onClick = onToggleManage,
+                    testTag = "manage-button",
+                )
+            }
+        }
+        FolderResultList(
+            folders = folders,
+            searchQuery = searchQuery,
+            onTopicSelected = onTopicSelected,
+            onRenameTopic = onRenameTopic,
+            onDeleteTopic = onDeleteTopic,
+            isManagingMinistries = isManagingMinistries,
+            compact = true,
         )
     }
 }
 
 @Composable
-private fun MinistryActionButton(
+private fun MinistryHeaderAction(
     title: String,
-    subtitle: String,
     onClick: () -> Unit,
     testTag: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    highlight: Boolean = false,
 ) {
-    PlainCell(
-        modifier = modifier
-            .fillMaxSize()
-            .clickable(enabled = enabled, onClick = onClick)
+    Box(
+        modifier = Modifier
+            .padding(start = 6.dp)
+            .background(Color.White.copy(alpha = 0.52f), RoundedCornerShape(4.dp))
+            .border(0.7.dp, Color.Black.copy(alpha = 0.16f), RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
             .testTag(testTag),
-        color = if (highlight) HomeDeepInk else ImperialLightGold,
-        contentColor = if (highlight) ImperialIvory else HomeInk,
+        contentAlignment = Alignment.Center,
     ) {
-        val textColor = if (highlight) ImperialIvory else HomeInk
-        val secondaryColor = textColor.copy(alpha = if (highlight) 0.72f else 0.68f)
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = textColor,
-                fontWeight = FontWeight.Normal,
-                maxLines = 1,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = secondaryColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.Black,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            maxLines = 1,
+        )
     }
 }
 
 @Composable
-private fun ColumnScope.FolderResultList(
+private fun FolderResultList(
     folders: List<DashboardFolder>,
     searchQuery: String,
     onTopicSelected: (String) -> Unit,
+    onRenameTopic: (String) -> Unit,
+    onDeleteTopic: (String) -> Unit,
+    isManagingMinistries: Boolean,
     compact: Boolean,
 ) {
     if (folders.isEmpty()) {
         PlainCell(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compact) 96.dp else 112.dp),
+                .height(if (compact) 74.dp else 96.dp),
             color = HomePaper,
             contentColor = HomeInk,
         ) {
@@ -663,16 +709,24 @@ private fun ColumnScope.FolderResultList(
         }
         return
     }
-    folders.forEachIndexed { index, folder ->
-        MinistryTicketCard(
-            folder = folder,
-            visual = folderVisual(index),
-            onTopicSelected = onTopicSelected,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (compact) 104.dp else 118.dp),
-            compact = compact,
-        )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        folders.forEachIndexed { index, folder ->
+            MinistryTicketCard(
+                folder = folder,
+                visual = folderVisual(index),
+                onTopicSelected = onTopicSelected,
+                onRenameTopic = onRenameTopic,
+                onDeleteTopic = onDeleteTopic,
+                isManagingMinistries = isManagingMinistries,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (compact) 72.dp else 94.dp),
+                compact = compact,
+            )
+        }
     }
 }
 
@@ -681,57 +735,26 @@ private fun MinistryTicketCard(
     folder: DashboardFolder,
     visual: FolderVisual,
     onTopicSelected: (String) -> Unit,
+    onRenameTopic: (String) -> Unit,
+    onDeleteTopic: (String) -> Unit,
+    isManagingMinistries: Boolean,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
     val enabled = folder.topic != null
-    val bodyColor = visual.background
-    val imageSize = if (compact) 58.dp else 88.dp
-    val titleStyle = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+    val imageSize = if (compact) 34.dp else 64.dp
+    val titleStyle = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge
     val summaryStyle = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
-    Box(
+    MinistryTicketSurface(
         modifier = modifier
-            .padding(vertical = 3.dp)
-            .clip(MinistryTicketShape)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        bodyColor,
-                        bodyColor.copy(alpha = 0.94f),
-                        ImperialIvory.copy(alpha = 0.92f),
-                    ),
-                ),
-                MinistryTicketShape,
-            )
-            .border(1.dp, ImperialBronze.copy(alpha = 0.62f), MinistryTicketShape)
-            .clickable(enabled = enabled) { folder.topic?.let { onTopicSelected(it.id) } }
+            .clickable(enabled = enabled && !isManagingMinistries) { folder.topic?.let { onTopicSelected(it.id) } }
             .testTag("topic-card-${folder.id}"),
+        borderAlpha = 0.22f,
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.memorial_xuan_paper),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 0.22f,
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            visual.accent.copy(alpha = 0.08f),
-                            visual.accent.copy(alpha = 0.16f),
-                        ),
-                    ),
-                ),
-        )
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 12.dp, top = 9.dp, end = 10.dp, bottom = 9.dp),
+                .padding(start = 16.dp, top = 7.dp, end = 12.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -742,39 +765,123 @@ private fun MinistryTicketCard(
                 Text(
                     text = folder.title,
                     style = titleStyle,
-                    color = HomeInk,
+                    color = Color.Black.copy(alpha = 0.88f),
                     fontWeight = FontWeight.Normal,
                     maxLines = 1,
                 )
                 Text(
                     text = visual.description,
                     style = summaryStyle,
-                    color = HomeInk.copy(alpha = 0.84f),
+                    color = Color.Black.copy(alpha = 0.52f),
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Column(
+                modifier = Modifier.width(if (isManagingMinistries) 104.dp else if (compact) 78.dp else 104.dp),
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Image(
-                    painter = painterResource(id = visual.imageRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(imageSize),
-                    contentScale = ContentScale.Fit,
-                )
-                Text(
-                    text = folder.updatedAtEpochMillis?.let { "${folder.itemCount} 篇 · ${friendlyTime(it)}" }
-                        ?: "${folder.itemCount} 篇 · 待启用",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = visual.accent.copy(alpha = 0.84f),
-                    maxLines = 1,
-                )
+                if (isManagingMinistries && folder.topic != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        MinistryInlineAction(
+                            title = "改名",
+                            onClick = { onRenameTopic(folder.topic.id) },
+                            testTag = "rename-topic-button-${folder.id}",
+                        )
+                        MinistryInlineAction(
+                            title = "删除",
+                            onClick = { onDeleteTopic(folder.topic.id) },
+                            testTag = "delete-topic-button-${folder.id}",
+                        )
+                    }
+                } else {
+                    Image(
+                        painter = painterResource(id = visual.imageRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(imageSize),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Text(
+                        text = folder.updatedAtEpochMillis?.let { "${folder.itemCount} 篇 · ${friendlyTime(it)}" }
+                            ?: "${folder.itemCount} 篇 · 待启用",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Black.copy(alpha = 0.48f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun MinistryInlineAction(
+    title: String,
+    onClick: () -> Unit,
+    testTag: String,
+) {
+    Box(
+        modifier = Modifier
+            .background(Color.White.copy(alpha = 0.58f), RoundedCornerShape(4.dp))
+            .border(0.7.dp, Color.Black.copy(alpha = 0.14f), RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Black,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun MinistryTicketSurface(
+    modifier: Modifier = Modifier,
+    borderAlpha: Float,
+    content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(MinistryTicketShape)
+            .background(Color.White, MinistryTicketShape),
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.home_search_tile),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.White.copy(alpha = 0.24f)),
+        )
+        content()
+    }
+}
+
+@Composable
+private fun HomeOrnament(
+    @DrawableRes imageRes: Int,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    alpha: Float = 0.5f,
+) {
+    Image(
+        painter = painterResource(id = imageRes),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Fit,
+        colorFilter = ColorFilter.tint(tint.copy(alpha = 0.92f)),
+        alpha = alpha,
+    )
 }
 
 @Composable
@@ -788,9 +895,37 @@ private fun PlainCell(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(color, shape)
-            .border(1.dp, ImperialBronze.copy(alpha = 0.34f), shape),
+            .background(color, shape),
     ) {
+        BoxScopeWithContentColor(this, contentColor).content()
+    }
+}
+
+@Composable
+private fun CutoutCell(
+    modifier: Modifier,
+    contentColor: Color,
+    tileVisual: ArchiveTileVisual,
+    content: @Composable BoxScopeWithContentColor.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .shadow(8.dp, ArchiveCutCornerShape, clip = false)
+            .clip(ArchiveCutCornerShape)
+            .background(HomePaper, ArchiveCutCornerShape)
+            .border(1.2.dp, tileVisual.borderColor.copy(alpha = 0.86f), ArchiveCutCornerShape),
+    ) {
+        Image(
+            painter = painterResource(id = tileVisual.backgroundRes),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.18f)),
+        )
         BoxScopeWithContentColor(this, contentColor).content()
     }
 }
@@ -799,23 +934,6 @@ private class BoxScopeWithContentColor(
     private val boxScope: androidx.compose.foundation.layout.BoxScope,
     val contentColor: Color,
 ) : androidx.compose.foundation.layout.BoxScope by boxScope
-
-@Composable
-private fun DecorativePlaceholder(
-    @DrawableRes imageRes: Int,
-    modifier: Modifier = Modifier,
-    alpha: Float = 1f,
-    tint: Color? = null,
-) {
-    Image(
-        painter = painterResource(id = imageRes),
-        contentDescription = null,
-        modifier = modifier,
-        contentScale = ContentScale.Crop,
-        alpha = alpha,
-        colorFilter = tint?.let { ColorFilter.tint(it) },
-    )
-}
 
 private fun pendingCount(
     topics: List<Topic>,

@@ -1,6 +1,7 @@
 package com.lyihub.archiveassistant.ui.screens
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.graphics.Color
 import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.ui.theme.ImperialBronze
@@ -21,6 +22,62 @@ internal data class ArticleVisual(
     @param:DrawableRes val imageRes: Int?,
     val aspectRatio: Float,
 )
+
+internal data class ArchiveTileVisual(
+    @param:DrawableRes val backgroundRes: Int,
+    val borderColor: Color,
+)
+
+internal val ArchiveCutCornerShape = GenericShape { size, _ ->
+    val notch = size.minDimension * 0.08f
+    moveTo(notch, 0f)
+    lineTo(size.width - notch, 0f)
+    quadraticTo(size.width - notch, notch, size.width, notch)
+    lineTo(size.width, size.height - notch)
+    quadraticTo(size.width - notch, size.height - notch, size.width - notch, size.height)
+    lineTo(notch, size.height)
+    quadraticTo(notch, size.height - notch, 0f, size.height - notch)
+    lineTo(0f, notch)
+    quadraticTo(notch, notch, notch, 0f)
+    close()
+}
+
+internal val ZhongshuTileVisual = ArchiveTileVisual(
+    backgroundRes = R.drawable.home_zhongshu_tile,
+    borderColor = Color(0xFF9C4A37),
+)
+
+internal val MenxiaTileVisual = ArchiveTileVisual(
+    backgroundRes = R.drawable.home_menxia_tile,
+    borderColor = Color(0xFFDEC59E),
+)
+
+internal val MemorialTileVisual = ArchiveTileVisual(
+    backgroundRes = R.drawable.home_memorial_tile,
+    borderColor = Color(0xFFAFD9BD),
+)
+
+internal val ClipboardTileVisual = ArchiveTileVisual(
+    backgroundRes = R.drawable.home_clipboard_tile,
+    borderColor = Color(0xFF78ABCC),
+)
+
+internal val SearchTileVisual = ArchiveTileVisual(
+    backgroundRes = R.drawable.home_search_new_tile,
+    borderColor = Color(0xFF3E3E46),
+)
+
+internal val HomeTileVisuals = listOf(
+    ZhongshuTileVisual,
+    MenxiaTileVisual,
+    MemorialTileVisual,
+    ClipboardTileVisual,
+    SearchTileVisual,
+)
+
+internal fun homeTileVisual(index: Int): ArchiveTileVisual {
+    return HomeTileVisuals[index.floorMod(HomeTileVisuals.size)]
+}
 
 internal val FolderVisuals = listOf(
     FolderVisual(
@@ -97,6 +154,8 @@ private val ArticleIllustrations = listOf(
 )
 
 internal fun folderVisual(index: Int): FolderVisual = FolderVisuals[index % FolderVisuals.size]
+
+private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 
 internal fun articleVisual(index: Int, hasImage: Boolean): ArticleVisual {
     if (!hasImage) return ArticleVisual(imageRes = null, aspectRatio = 1f)

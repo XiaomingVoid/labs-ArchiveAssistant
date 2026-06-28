@@ -9,11 +9,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,11 +29,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -40,15 +45,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.R
+import com.lyihub.archiveassistant.ui.components.XuanPaperBackground
 import com.lyihub.archiveassistant.ui.theme.ImperialBronze
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
 import com.lyihub.archiveassistant.ui.theme.ImperialIvory
 import com.lyihub.archiveassistant.ui.theme.ImperialParchment
+import com.lyihub.archiveassistant.ui.theme.ImperialStampFont
 import com.lyihub.archiveassistant.ui.theme.ImperialUmber
 import kotlin.math.cos
 import kotlin.math.abs
@@ -58,7 +66,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private const val MemorialCoverAspect = 1f / 2f
-private const val MemorialWheelItemCount = 24
+private const val MemorialWheelItemCount = 20
 private const val MemorialActiveSlotDegrees = 225f
 private const val MemorialWheelDragDegreesPerPixel = -0.18f
 private const val MemorialWheelActiveScale = 1.58f
@@ -67,49 +75,50 @@ private const val MemorialWheelCoverSeed = 20260627
 private const val MemorialWheelDuplicateGuard = 3
 private val MemorialInk = Color.Black
 
+private data class BriefingSample(
+    val title: String,
+    val body: String,
+)
+
+private val BriefingSamples = listOf(
+    BriefingSample(
+        title = "端侧模型突破摘要",
+        body = "多篇材料指向端侧推理与系统级 AI 能力更新，适合优先判断是否进入今日重点。",
+    ),
+    BriefingSample(
+        title = "折叠屏交互线索",
+        body = "新增一条适合视频展示的双屏协同链路，可用于解释朝堂视角与批阅流程的关系。",
+    ),
+    BriefingSample(
+        title = "素材归档提醒",
+        body = "国风纹样、封面图与瀑布流插图已形成一组可复用素材，需要决定归档主题。",
+    ),
+)
+
 @Composable
 fun MemorialBriefingPane(
     pendingCount: Int,
     onOpenMemorialDemo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(
+    var activeBriefIndex by remember { mutableIntStateOf(0) }
+    XuanPaperBackground(
         modifier = modifier
             .fillMaxSize()
-            .background(ImperialIvory)
             .clickable(onClick = onOpenMemorialDemo),
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.memorial_xuan_paper),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 0.36f,
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            ImperialIvory.copy(alpha = 0.1f),
-                            ImperialParchment.copy(alpha = 0.45f),
-                            ImperialIvory.copy(alpha = 0.82f),
-                        ),
-                        center = Offset.Infinite,
-                        radius = 900f,
-                    ),
-                ),
-        )
         MemorialCoverWheel(
             coverResources = MemorialCoverResources,
+            pendingCount = pendingCount,
+            onActiveIndexChanged = { activeBriefIndex = it },
             modifier = Modifier.fillMaxSize(),
         )
         BriefingCopy(
-            pendingCount = pendingCount,
+            activeIndex = activeBriefIndex,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 24.dp, top = 40.dp),
+                .padding(start = 24.dp, top = 56.dp, end = 24.dp)
+                .fillMaxWidth(),
         )
     }
 }
@@ -117,6 +126,8 @@ fun MemorialBriefingPane(
 @Composable
 private fun MemorialCoverWheel(
     coverResources: List<Int>,
+    pendingCount: Int,
+    onActiveIndexChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var wheelRotation by remember { mutableFloatStateOf(0f) }
@@ -143,15 +154,19 @@ private fun MemorialCoverWheel(
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        wheelRotation += dragAmount.y * MemorialWheelDragDegreesPerPixel
+                        val updatedRotation = wheelRotation + dragAmount.y * MemorialWheelDragDegreesPerPixel
+                        wheelRotation = updatedRotation
+                        onActiveIndexChanged(activeWheelIndex(updatedRotation, stepDegrees))
                     },
                     onDragEnd = {
                         val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
                         wheelRotation = snappedRotation
+                        onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
                     },
                     onDragCancel = {
                         val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
                         wheelRotation = snappedRotation
+                        onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
                     },
                 )
             },
@@ -159,16 +174,24 @@ private fun MemorialCoverWheel(
         val panelMin = min(maxWidth.value, maxHeight.value).dp
         val radius = panelMin * 0.66f
         val innerRadius = radius * 0.63f
-        val centerX = maxWidth
-        val centerY = maxHeight * 0.59f
+        val wheelCenterX = maxWidth + 58.dp
+        val centerY = maxHeight * 0.67f
         val cardWidth = 72.dp
         val startDegrees = MemorialActiveSlotDegrees + animatedWheelRotation
 
         MemorialWheelInnerDisc(
-            centerX = centerX,
+            centerX = wheelCenterX,
             centerY = centerY,
             radius = innerRadius,
             modifier = Modifier.fillMaxSize(),
+        )
+        PendingVerticalNote(
+            pendingCount = pendingCount,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 24.dp, top = 156.dp, bottom = 24.dp)
+                .width(58.dp)
+                .height(206.dp),
         )
         val wheelItems = remember(startDegrees) {
             val seamIndex = floorMod(((-startDegrees + 45f) / stepDegrees).roundToInt(), MemorialWheelItemCount)
@@ -189,7 +212,7 @@ private fun MemorialCoverWheel(
                     resId = item.resId,
                     index = item.index,
                     degrees = item.degrees,
-                    centerX = centerX,
+                    centerX = wheelCenterX,
                     centerY = centerY,
                     radius = radius,
                     width = cardWidth,
@@ -197,6 +220,60 @@ private fun MemorialCoverWheel(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PendingVerticalNote(
+    pendingCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    val stampShape = RoundedCornerShape(2.dp)
+    Box(
+        modifier = modifier
+            .shadow(8.dp, stampShape, clip = false),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.pending_note_stamp),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.FillHeight,
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(40.dp)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(
+                space = 0.dp,
+                alignment = Alignment.CenterVertically,
+            ),
+        ) {
+            val stampTextStyle = MaterialTheme.typography.titleMedium.copy(fontFamily = ImperialStampFont)
+            Text(
+                text = "待\n批",
+                style = stampTextStyle,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+            )
+            Text(
+                text = "·\n$pendingCount\n·",
+                style = stampTextStyle,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+            )
+            Text(
+                text = "封\n奏\n章",
+                style = stampTextStyle,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+            )
         }
     }
 }
@@ -309,6 +386,10 @@ private fun wheelItemFocus(degrees: Float): Float {
 
 private fun floorMod(value: Int, modulus: Int): Int = ((value % modulus) + modulus) % modulus
 
+private fun activeWheelIndex(rotation: Float, stepDegrees: Float): Int {
+    return floorMod((-rotation / stepDegrees).roundToInt(), MemorialWheelItemCount)
+}
+
 private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float {
     return start + (stop - start) * fraction.coerceIn(0f, 1f)
 }
@@ -341,8 +422,8 @@ private fun MemorialWheelInnerDisc(
         ) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = radius * 0.18f),
+                    .align(Alignment.Center)
+                    .offset(x = radius * 0.05f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -389,60 +470,75 @@ private fun MemorialWheelCover(
     val height = width / MemorialCoverAspect
     val x = centerX + radius * cos(radians).toFloat() - width / 2f
     val y = centerY + radius * sin(radians).toFloat() - height * 0.75f
-    val cornerRadius = lerpDp(3.dp, 5.dp, focus)
-    val borderWidth = lerpDp(0.8.dp, 1.4.dp, focus)
-    val innerBorderWidth = lerpDp(3.dp, 5.dp, focus)
+    val cornerRadius = lerpDp(1.5.dp, 2.5.dp, focus)
+    val frameOutset = lerpDp(3.dp, 5.dp, focus)
+    val frameWidth = width + frameOutset * 2f
+    val frameHeight = height + frameOutset * 2f
+    val frameCornerRadius = lerpDp(3.dp, 4.5.dp, focus)
+    val frameStrokeWidth = lerpDp(1.dp, 1.6.dp, focus)
+    val transformPivotY = ((height.value * 0.75f) + frameOutset.value) / frameHeight.value
     Box(
         modifier = modifier,
     ) {
         Box(
             modifier = Modifier
-                .offset(x = x, y = y)
-                .width(width)
-                .aspectRatio(MemorialCoverAspect)
+                .offset(x = x - frameOutset, y = y - frameOutset)
+                .size(frameWidth, frameHeight)
                 .graphicsLayer(
                     rotationZ = degrees + 90f,
-                    transformOrigin = TransformOrigin(0.5f, 0.75f),
+                    transformOrigin = TransformOrigin(0.5f, transformPivotY),
                     scaleX = coverScale,
                     scaleY = coverScale,
                 )
-                .background(ImperialParchment, RoundedCornerShape(cornerRadius))
+                .shadow(8.dp, RoundedCornerShape(frameCornerRadius), clip = false)
+                .background(
+                    Color.White,
+                    RoundedCornerShape(frameCornerRadius),
+                )
                 .border(
-                    width = borderWidth,
+                    width = frameStrokeWidth,
                     color = ImperialBronze.copy(alpha = borderAlpha),
-                    shape = RoundedCornerShape(cornerRadius),
-                ),
+                    shape = RoundedCornerShape(frameCornerRadius),
+                )
+                .padding(frameOutset),
         ) {
-            Image(
-                painter = painterResource(id = resId),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.05f),
-                                ImperialUmber.copy(alpha = lerpFloat(0.13f, 0.08f, focus)),
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .background(ImperialParchment),
+            ) {
+                Image(
+                    painter = painterResource(id = resId),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.05f),
+                                    ImperialUmber.copy(alpha = lerpFloat(0.13f, 0.08f, focus)),
+                                ),
                             ),
                         ),
-                    ),
-            )
+                )
+                MemorialCoverLabel(
+                    focus = focus,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .matchParentSize()
                     .border(
-                        width = innerBorderWidth,
-                        color = ImperialIvory.copy(alpha = lerpFloat(0.18f, 0.24f, focus)),
-                        shape = RoundedCornerShape(cornerRadius),
+                        width = lerpDp(0.6.dp, 0.9.dp, focus),
+                        color = ImperialIvory.copy(alpha = lerpFloat(0.12f, 0.18f, focus)),
+                        shape = RoundedCornerShape(frameCornerRadius),
                     ),
-            )
-            MemorialCoverLabel(
-                focus = focus,
-                modifier = Modifier.align(Alignment.Center),
             )
         }
     }
@@ -463,10 +559,16 @@ private fun MemorialCoverLabel(
                 .align(Alignment.Center)
                 .width(maxWidth * labelWidth)
                 .aspectRatio(MemorialCoverAspect / labelHeight * labelWidth)
-                .background(ImperialIvory.copy(alpha = lerpFloat(0.9f, 0.96f, focus)), RoundedCornerShape(2.dp))
+                .clip(RoundedCornerShape(2.dp))
+                .background(ImperialIvory.copy(alpha = lerpFloat(0.9f, 0.96f, focus)))
                 .border(1.dp, ImperialBronze.copy(alpha = lerpFloat(0.52f, 0.76f, focus)), RoundedCornerShape(2.dp))
                 .padding(lerpDp(4.dp, 5.dp, focus)),
         ) {
+            XuanPaperBackground(
+                modifier = Modifier.matchParentSize(),
+                textureAlpha = lerpFloat(0.3f, 0.42f, focus),
+                veilAlpha = 0.42f,
+            ) {}
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -530,12 +632,130 @@ private fun MemorialCoverLabel(
 
 @Composable
 private fun BriefingCopy(
-    pendingCount: Int,
+    activeIndex: Int,
     modifier: Modifier = Modifier,
 ) {
-    PaneHeroHeader(
-        title = "奏章",
-        description = "今日尚有 $pendingCount 封待批。轻触此页，展开奏章堆叠，准、驳、留中皆可一笔批下。",
+    val sample = BriefingSamples[floorMod(activeIndex, BriefingSamples.size)]
+    Column(
         modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        PaneHeroHeader(
+            title = "奏章",
+            description = "轻触此页展开奏章堆叠，准、驳、留中皆可一笔批下。",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        MemorialBriefCard(
+            sample = sample,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun MemorialBriefCard(
+    sample: BriefingSample,
+    modifier: Modifier = Modifier,
+) {
+    MemorialFramedPaperPanel(
+        modifier = modifier.heightIn(min = 76.dp),
+        cornerSize = 12.dp,
+        contentPadding = 13.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = sample.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MemorialInk,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = sample.body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MemorialInk.copy(alpha = 0.78f),
+                lineHeight = 18.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MemorialFramedPaperPanel(
+    modifier: Modifier = Modifier,
+    cornerSize: Dp,
+    contentPadding: Dp,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(3.dp)
+    Box(
+        modifier = modifier
+            .shadow(9.dp, shape, clip = false)
+            .clip(shape)
+            .background(ImperialIvory.copy(alpha = 0.96f), shape)
+            .border(1.dp, ImperialBronze.copy(alpha = 0.62f), shape),
+    ) {
+        XuanPaperBackground(
+            modifier = Modifier.matchParentSize(),
+            textureAlpha = 0.4f,
+            veilAlpha = 0.38f,
+        ) {}
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .border(0.8.dp, ImperialBronze.copy(alpha = 0.42f), RoundedCornerShape(1.dp)),
+        )
+        FramedPaperCorner(
+            alignment = Alignment.TopStart,
+            rotation = 0f,
+            size = cornerSize,
+        )
+        FramedPaperCorner(
+            alignment = Alignment.TopEnd,
+            rotation = 90f,
+            size = cornerSize,
+        )
+        FramedPaperCorner(
+            alignment = Alignment.BottomEnd,
+            rotation = 180f,
+            size = cornerSize,
+        )
+        FramedPaperCorner(
+            alignment = Alignment.BottomStart,
+            rotation = 270f,
+            size = cornerSize,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(contentPadding),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.FramedPaperCorner(
+    alignment: Alignment,
+    rotation: Float,
+    size: Dp,
+) {
+    Image(
+        painter = painterResource(id = R.drawable.memorial_cover_corner),
+        contentDescription = null,
+        modifier = Modifier
+            .align(alignment)
+            .size(size)
+            .graphicsLayer(rotationZ = rotation),
+        alpha = 0.62f,
+        colorFilter = ColorFilter.tint(ImperialCinnabar.copy(alpha = 0.62f)),
     )
 }

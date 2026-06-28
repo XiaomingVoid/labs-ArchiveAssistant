@@ -25,10 +25,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import android.net.Uri
@@ -36,21 +35,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,7 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
@@ -72,7 +67,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
 import com.lyihub.archiveassistant.R
 import androidx.core.content.FileProvider
 import com.lyihub.archiveassistant.domain.ContentType
@@ -81,12 +76,14 @@ import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.Topic
 import com.lyihub.archiveassistant.state.AddItemDialogPrefill
 import com.lyihub.archiveassistant.ui.components.ActionButton
+import com.lyihub.archiveassistant.ui.components.ArchiveDialog
+import com.lyihub.archiveassistant.ui.components.ArchiveDialogAction
 import com.lyihub.archiveassistant.ui.components.PaneContainer
-import com.lyihub.archiveassistant.ui.components.TextActionButton
-import com.lyihub.archiveassistant.ui.theme.ImperialBronze
+import com.lyihub.archiveassistant.ui.components.XuanPaperBackground
 import com.lyihub.archiveassistant.ui.theme.ImperialCinnabar
 import com.lyihub.archiveassistant.ui.theme.ImperialIvory
 import com.lyihub.archiveassistant.ui.theme.ImperialParchment
+import com.lyihub.archiveassistant.ui.theme.ImperialTextFont
 import com.lyihub.archiveassistant.ui.theme.ImperialUmber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -96,11 +93,24 @@ import com.lyihub.archiveassistant.data.resolveDisplayName
 import com.lyihub.archiveassistant.data.uniqueImportFile
 import java.io.File
 
-private val DetailBackground = ImperialIvory
 private val DetailBorder = Color.Black
 private val DetailPaperDeep = ImperialParchment
 private val DetailInk = Color.Black
 private val DetailCinnabar = ImperialCinnabar
+private val DetailArticleTags = listOf("要闻", "人物", "趋势", "资料", "待阅", "摘录", "案例", "长文")
+private val DetailCardCorner = 9.dp
+private val DetailTagChipShape = GenericShape { size, _ ->
+    val notch = size.minDimension * 0.26f
+    moveTo(notch, 0f)
+    lineTo(size.width - notch, 0f)
+    lineTo(size.width, notch)
+    lineTo(size.width, size.height - notch)
+    lineTo(size.width - notch, size.height)
+    lineTo(notch, size.height)
+    lineTo(0f, size.height - notch)
+    lineTo(0f, notch)
+    close()
+}
 
 private const val FileProviderAuthoritySuffix = ".fileprovider"
 
@@ -138,30 +148,18 @@ fun DetailPane(
     showBackButton: Boolean = true,
 ) {
     val horizontalPadding = 24.dp
-    val topPadding = 40.dp
-    val contentTopPadding = 156.dp
-    val maxContentWidth = 560.dp
+    val topPadding = 56.dp
+    val contentTopPadding = 132.dp
 
     PaneContainer(
         modifier = modifier
-            .testTag("detail-pane")
-            .background(DetailBackground),
+            .testTag("detail-pane"),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .weight(1f)
-                .background(DetailBackground),
+                .weight(1f),
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.memorial_xuan_paper),
-                contentDescription = null,
-                modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.28f,
-            )
-            PaperVeil(modifier = Modifier.matchParentSize())
-
             DetailCourtHeader(
                 topic = topic,
                 itemCount = items.size,
@@ -169,7 +167,7 @@ fun DetailPane(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = horizontalPadding, top = topPadding, end = horizontalPadding)
-                    .widthIn(max = maxContentWidth),
+                    .fillMaxWidth(),
                 showBackButton = showBackButton,
             )
 
@@ -181,26 +179,23 @@ fun DetailPane(
                     end = horizontalPadding,
                     bottom = 28.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (items.isEmpty()) {
                     item {
                         EmptyMemorialShelf(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .widthIn(max = maxContentWidth),
+                                .fillMaxWidth(),
                         )
                     }
                 } else {
                     item {
                         ArticleMasonryGrid(
                             items = items,
-                            searchQuery = searchQuery,
                             onItemClick = onItemClick,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .widthIn(max = maxContentWidth),
+                                .fillMaxWidth(),
                         )
                     }
                 }
@@ -212,7 +207,6 @@ fun DetailPane(
 @Composable
 private fun ArticleMasonryGrid(
     items: List<KnowledgeItem>,
-    searchQuery: String,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -230,7 +224,6 @@ private fun ArticleMasonryGrid(
                     MemorialArticleCard(
                         item = card.item,
                         visual = card.visual,
-                        searchQuery = searchQuery,
                         onClick = { onItemClick(card.item.id) },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -279,7 +272,7 @@ private fun DetailCourtHeader(
 ) {
     PaneHeroHeader(
         title = topic.title,
-        description = "尚书归档，共 $itemCount 篇。两列铺陈，便于快速浏览、筛选与复查。",
+        description = "$itemCount 篇",
         showBackButton = showBackButton,
         onBack = onBack,
         modifier = modifier.testTag("detail-summary"),
@@ -290,34 +283,44 @@ private fun DetailCourtHeader(
 private fun MemorialArticleCard(
     item: KnowledgeItem,
     visual: ArticleVisual,
-    searchQuery: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val showHighlight = searchQuery.isNotBlank()
-    val cardShape = RoundedCornerShape(8.dp)
+    val cardShape = RoundedCornerShape(DetailCardCorner)
+    val imageShape = RoundedCornerShape(DetailCardCorner)
+    val tags = articleTags(item)
     Box(
         modifier = modifier
+            .shadow(8.dp, cardShape, clip = false)
             .clip(cardShape)
             .background(DetailPaperDeep, cardShape)
-            .border(1.dp, DetailBorder.copy(alpha = 0.5f), cardShape)
             .clickable(onClick = onClick)
             .testTag("knowledge-card-${item.id}"),
     ) {
         Image(
-            painter = painterResource(id = R.drawable.memorial_xuan_paper),
+            painter = painterResource(id = R.drawable.home_search_tile),
             contentDescription = null,
             modifier = Modifier.matchParentSize(),
             contentScale = ContentScale.Crop,
-            alpha = 0.72f,
         )
-        PaperVeil(modifier = Modifier.matchParentSize())
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.White.copy(alpha = 0.2f)),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(7.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             visual.imageRes?.let { imageRes ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp),
+                        .clip(imageShape)
+                        .background(Color.White, imageShape)
+                        .padding(5.dp),
                 ) {
                     Image(
                         painter = painterResource(id = imageRes),
@@ -330,97 +333,80 @@ private fun MemorialArticleCard(
                 }
             }
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 16.dp,
-                        top = if (visual.imageRes == null) 18.dp else 10.dp,
-                        end = 16.dp,
-                        bottom = 16.dp,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "${item.contentType.label} · ${friendlyTime(item.createdAtEpochMillis)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = DetailCinnabar,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = "尚书收",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DetailCinnabar.copy(alpha = 0.82f),
-                        fontWeight = FontWeight.Black,
-                    )
-                }
                 Text(
-                    text = if (showHighlight) {
-                        buildHighlightedText(
-                            text = item.title,
-                            query = searchQuery,
-                            highlightColor = DetailCinnabar,
-                            highlightBgColor = DetailCinnabar.copy(alpha = 0.16f),
-                        )
-                    } else {
-                        androidx.compose.ui.text.AnnotatedString(item.title)
-                    },
-                    style = MaterialTheme.typography.titleLarge,
+                    text = item.title,
+                    style = MaterialTheme.typography.titleSmall,
                     color = DetailInk,
                     fontWeight = FontWeight.Normal,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = if (showHighlight) {
-                        buildHighlightedText(
-                            text = item.summary.ifBlank { item.fullText },
-                            query = searchQuery,
-                            highlightColor = DetailCinnabar,
-                            highlightBgColor = DetailCinnabar.copy(alpha = 0.16f),
-                        )
-                    } else {
-                        androidx.compose.ui.text.AnnotatedString(item.summary.ifBlank { item.fullText })
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = DetailInk.copy(alpha = 0.74f),
-                    maxLines = if (visual.imageRes == null) 6 else 4,
-                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp, bottom = 2.dp),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(
-                        text = item.fileName ?: item.sourceUrl?.take(28).orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = DetailInk.copy(alpha = 0.5f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(width = 54.dp, height = 32.dp)
-                            .border(1.5.dp, DetailCinnabar.copy(alpha = 0.62f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "已藏",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = DetailCinnabar.copy(alpha = 0.82f),
-                            fontWeight = FontWeight.Black,
+                    tags.forEachIndexed { index, tag ->
+                        ArticleTagChip(
+                            text = tag,
+                            tileVisual = homeTileVisual(index + item.id.hashCode()),
                         )
                     }
                 }
             }
         }
+    }
+}
+
+private fun articleTags(item: KnowledgeItem): List<String> {
+    val formatTag = item.documentFormat?.label ?: item.contentType.label
+    val seed = (item.title.length + item.summary.length + item.id.length).coerceAtLeast(0)
+    val first = DetailArticleTags[seed % DetailArticleTags.size]
+    val second = DetailArticleTags[(seed + 3) % DetailArticleTags.size]
+    return listOf(formatTag, first, second).distinct().take(3)
+}
+
+@Composable
+private fun ArticleTagChip(
+    text: String,
+    modifier: Modifier = Modifier,
+    tileVisual: ArchiveTileVisual,
+) {
+    val tagShape = DetailTagChipShape
+    Box(
+        modifier = modifier
+            .height(20.dp)
+            .clip(tagShape)
+            .background(ImperialIvory, tagShape)
+            .border(0.8.dp, tileVisual.borderColor.copy(alpha = 0.88f), tagShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(id = tileVisual.backgroundRes),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.24f)),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = ImperialTextFont,
+                fontSize = 10.sp,
+                lineHeight = 10.sp,
+            ),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 7.dp),
+        )
     }
 }
 
@@ -439,7 +425,11 @@ private fun EmptyMemorialShelf(modifier: Modifier = Modifier) {
             contentScale = ContentScale.Crop,
             alpha = 0.68f,
         )
-        PaperVeil(modifier = Modifier.matchParentSize())
+        XuanPaperBackground(
+            modifier = Modifier.matchParentSize(),
+            textureAlpha = 0.68f,
+            veilAlpha = 0.9f,
+        ) {}
         Column(
             modifier = Modifier.padding(36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -463,22 +453,6 @@ private fun EmptyMemorialShelf(modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-@Composable
-private fun PaperVeil(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        ImperialIvory.copy(alpha = 0.16f),
-                        ImperialIvory.copy(alpha = 0.42f),
-                        ImperialUmber.copy(alpha = 0.05f),
-                    ),
-                ),
-            ),
-    )
 }
 
 @Composable
@@ -682,44 +656,53 @@ fun AddItemDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .testTag("add-item-dialog")
-                .widthIn(max = 600.dp),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (isEditMode) "修改资料" else "新增资料",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("add-item-dialog-close"),
+    ArchiveDialog(
+        title = if (isEditMode) "修改资料" else "新增资料",
+        onDismissRequest = onDismiss,
+        testTag = "add-item-dialog",
+        actions = {
+            ArchiveDialogAction(
+                label = "取消",
+                onClick = onDismiss,
+            )
+            ArchiveDialogAction(
+                label = if (isEditMode) "保存" else "确认",
+                onClick = {
+                    val textDocumentContent = textContent.takeIf { it.isNotBlank() } ?: effectivePrefill
+                        ?.takeIf { it.sourceUrl == null && it.title.isNotBlank() }
+                        ?.title
+                    val textDocumentFile = if (
+                        selectedContentType == ContentType.DOCUMENT &&
+                        selectedFileUri == null &&
+                        textDocumentContent != null
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "关闭",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        writeMarkdownPrefillFile(context, title, textDocumentContent)
+                    } else {
+                        null
                     }
-                }
-
+                    val sourceUrl = when (selectedContentType) {
+                        ContentType.WEB_ARTICLE -> url.takeIf { it.isNotBlank() }
+                        else -> textDocumentFile?.absolutePath ?: selectedLocalFilePath
+                    }
+                    val docFormat = if (selectedContentType == ContentType.DOCUMENT) {
+                        if (textDocumentFile != null) DocumentFormat.MARKDOWN else selectedDocumentFormat ?: DocumentFormat.UNKNOWN
+                    } else null
+                    val fileName = if (textDocumentFile != null) textDocumentFile.name else selectedFileName
+                    val topicId = if (isEditMode) initialItem?.topicId.orEmpty() else selectedDialogTopicId
+                    onConfirm(topicId, title, selectedContentType, sourceUrl, summary, false, docFormat, fileName)
+                },
+                primary = true,
+                testTag = "add-item-confirm",
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
                 if (!isEditMode) {
                     ExposedDropdownMenuBox(
                         expanded = topicMenuExpanded,
@@ -887,14 +870,17 @@ fun AddItemDialog(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = MaterialTheme.shapes.small,
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            ImperialCinnabar.copy(alpha = 0.1f),
+                                            RoundedCornerShape(4.dp),
+                                        ),
                                 ) {
                                     Text(
                                         text = selectedDocumentFormat!!.label,
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        color = DetailInk,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     )
                                 }
@@ -912,46 +898,6 @@ fun AddItemDialog(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextActionButton(
-                        label = "取消",
-                        onClick = onDismiss,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    ActionButton(
-                        label = if (isEditMode) "保存" else "确认",
-                        onClick = {
-                            val textDocumentContent = textContent.takeIf { it.isNotBlank() } ?: effectivePrefill
-                                ?.takeIf { it.sourceUrl == null && it.title.isNotBlank() }
-                                ?.title
-                            val textDocumentFile = if (
-                                selectedContentType == ContentType.DOCUMENT &&
-                                selectedFileUri == null &&
-                                textDocumentContent != null
-                            ) {
-                                writeMarkdownPrefillFile(context, title, textDocumentContent)
-                            } else {
-                                null
-                            }
-                            val sourceUrl = when (selectedContentType) {
-                                ContentType.WEB_ARTICLE -> url.takeIf { it.isNotBlank() }
-                                else -> textDocumentFile?.absolutePath ?: selectedLocalFilePath
-                            }
-                            val docFormat = if (selectedContentType == ContentType.DOCUMENT) {
-                                if (textDocumentFile != null) DocumentFormat.MARKDOWN else selectedDocumentFormat ?: DocumentFormat.UNKNOWN
-                            } else null
-                            val fileName = if (textDocumentFile != null) textDocumentFile.name else selectedFileName
-                            val topicId = if (isEditMode) initialItem?.topicId.orEmpty() else selectedDialogTopicId
-                            onConfirm(topicId, title, selectedContentType, sourceUrl, summary, false, docFormat, fileName)
-                        },
-                        testTag = "add-item-confirm",
-                    )
-                }
-            }
         }
     }
 }
@@ -963,54 +909,47 @@ fun CardModal(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onClose) {
-        Surface(
-            modifier = Modifier
-                .testTag("card-modal")
-                .widthIn(max = 600.dp),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-        ) {
+    ArchiveDialog(
+        title = item.title,
+        onDismissRequest = onClose,
+        testTag = "card-modal",
+        actions = {
+            ArchiveDialogAction(
+                label = "删除",
+                onClick = onDelete,
+                destructive = true,
+            )
+            ArchiveDialogAction(
+                label = "修改",
+                onClick = onEdit,
+                primary = true,
+            )
+            ArchiveDialogAction(
+                label = "关闭",
+                onClick = onClose,
+                testTag = "card-modal-close",
+            )
+        },
+    ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .heightIn(max = 520.dp)
                     .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Text(
+                    text = item.contentType.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DetailCinnabar,
+                )
+                if (item.summary.isNotBlank()) {
                     Text(
-                        text = item.contentType.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        text = item.summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DetailInk,
                     )
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier.testTag("card-modal-close"),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "关闭",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = item.summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
                 if (item.contentType == ContentType.IMAGE_SCREENSHOT) {
                     if (item.sourceUrl != null) {
                         val path = item.sourceUrl!!
@@ -1025,56 +964,36 @@ fun CardModal(
                             }
                         }
                         bitmap?.let { bmp ->
-                            Spacer(modifier = Modifier.height(12.dp))
                             Image(
                                 bitmap = bmp,
                                 contentDescription = item.title,
                                 contentScale = ContentScale.FillWidth,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp)),
+                                    .clip(RoundedCornerShape(4.dp)),
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
                 if (!item.sourceUrl.isNullOrBlank()) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     Text(
                         text = item.sourceUrl,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = DetailCinnabar,
                         modifier = Modifier.clickable {
                             openKnowledgeItemSource(context, item)
                         },
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
                 if (item.fullText.isNotBlank() && item.fullText != item.summary) {
                     Text(
                         text = item.fullText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextActionButton(
-                        label = "删除",
-                        onClick = onDelete,
-                        contentColor = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    ActionButton(
-                        label = "修改",
-                        onClick = onEdit,
+                        color = DetailInk.copy(alpha = 0.72f),
                     )
                 }
             }
-        }
     }
 }
 
@@ -1196,10 +1115,26 @@ fun ClipboardDialog(
         }
     }
 
-    AlertDialog(
+    ArchiveDialog(
+        title = if (sourceLabel != null) "检测到${sourceLabel}内容" else "检测到剪切板内容",
         onDismissRequest = onDismiss,
-        title = { Text(if (sourceLabel != null) "检测到${sourceLabel}内容" else "检测到剪切板内容") },
-        text = {
+        actions = {
+            ArchiveDialogAction(
+                label = "忽略",
+                onClick = onDismiss,
+            )
+            ArchiveDialogAction(
+                label = "手动归纳",
+                onClick = onManualCreate,
+            )
+            ArchiveDialogAction(
+                label = if (isSmartSummarizing) "归纳中…" else "智能归纳",
+                onClick = onSummarize,
+                enabled = !isSmartSummarizing,
+                primary = true,
+            )
+        },
+    ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1225,9 +1160,10 @@ fun ClipboardDialog(
                     )
                 }
                 if (!hasContent && imageBitmap == null && (sourceFileName != null || sourceDocumentFormat != null)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.small,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White.copy(alpha = 0.34f), RoundedCornerShape(4.dp)),
                     ) {
                         Column(
                             modifier = Modifier
@@ -1239,7 +1175,7 @@ fun ClipboardDialog(
                                 Text(
                                     text = it,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = DetailInk,
                                 )
                             }
                             val typeLabel = when {
@@ -1252,7 +1188,7 @@ fun ClipboardDialog(
                                 Text(
                                     text = it,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = DetailCinnabar,
                                 )
                             }
                         }
@@ -1266,24 +1202,7 @@ fun ClipboardDialog(
                     )
                 }
             }
-        },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDismiss) {
-                    Text("忽略")
-                }
-                TextButton(onClick = onManualCreate) {
-                    Text("手动归纳")
-                }
-                TextButton(
-                    onClick = onSummarize,
-                    enabled = !isSmartSummarizing,
-                ) {
-                    Text(if (isSmartSummarizing) "归纳中…" else "智能归纳")
-                }
-            }
-        },
-    )
+    }
 }
 
 @Composable
@@ -1292,23 +1211,18 @@ fun DeleteItemConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ArchiveDialog(
+        title = "确认删除",
         onDismissRequest = onDismiss,
-        title = { Text("确认删除") },
-        text = { Text("确定要删除资料 \"$itemTitle\" 吗？") },
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                onClick = onConfirm,
-            ) {
-                Text("删除", color = MaterialTheme.colorScheme.error)
-            }
+        actions = {
+            ArchiveDialogAction(label = "取消", onClick = onDismiss)
+            ArchiveDialogAction(label = "删除", onClick = onConfirm, destructive = true)
         },
-        dismissButton = {
-            androidx.compose.material3.TextButton(
-                onClick = onDismiss,
-            ) {
-                Text("取消")
-            }
-        },
-    )
+    ) {
+        Text(
+            text = "确定要删除资料 \"$itemTitle\" 吗？",
+            style = MaterialTheme.typography.bodyMedium,
+            color = DetailInk,
+        )
+    }
 }

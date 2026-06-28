@@ -43,7 +43,7 @@ internal fun PaneHeroHeader(
         }
         Text(
             text = title,
-            style = MaterialTheme.typography.displayLarge,
+            style = MaterialTheme.typography.displayMedium,
             color = Color.Black,
             fontWeight = FontWeight.Normal,
             maxLines = 2,
@@ -54,7 +54,7 @@ internal fun PaneHeroHeader(
             style = MaterialTheme.typography.titleSmall,
             color = Color.Black.copy(alpha = 0.78f),
             modifier = Modifier
-                .fillMaxWidth(0.56f)
+                .fillMaxWidth()
                 .testTag("pane-hero-summary"),
         )
     }

@@ -192,7 +192,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paints.background)
+        drawStageBackground(canvas)
 
         val viewportWidth = foldRight - foldLeft
         if (viewportWidth <= 0f) return
@@ -220,6 +220,15 @@ internal class MemorialFoldView(context: Context) : View(context) {
         }
         drawStampOverlay(canvas)
         canvas.restore()
+    }
+
+    private fun drawStageBackground(canvas: Canvas) {
+        val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        paints.article.color = STAMP_PAPER
+        canvas.drawRect(rect, paints.article)
+        drawPaperBackground(canvas, rect, rotated = false)
+        drawPaperAging(canvas, rect, pageIndex = 0)
+        paints.article.color = AndroidColor.WHITE
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

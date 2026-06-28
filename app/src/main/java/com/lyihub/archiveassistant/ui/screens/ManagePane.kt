@@ -20,14 +20,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.lyihub.archiveassistant.domain.KnowledgeItem
 import com.lyihub.archiveassistant.domain.Topic
 import com.lyihub.archiveassistant.state.TopicNameDialogMode
+import com.lyihub.archiveassistant.ui.components.ArchiveDialog
+import com.lyihub.archiveassistant.ui.components.ArchiveDialogAction
 import com.lyihub.archiveassistant.ui.components.PaneContainer
 import com.lyihub.archiveassistant.ui.components.PaneDivider
 import com.lyihub.archiveassistant.ui.components.PaneHeader
@@ -67,8 +67,6 @@ fun ManagePane(
     deleteConfirmTopicId: String?,
     modifier: Modifier = Modifier,
 ) {
-    val renamingTopic = topics.firstOrNull { it.id == topicNameDialogTopicId }
-
     PaneContainer(modifier = modifier.testTag("manage-pane")) {
         PaneHeader(
             title = "全部主题",
@@ -127,6 +125,34 @@ fun ManagePane(
         }
     }
 
+    TopicManagementDialogs(
+        topics = topics,
+        topicNameDialogMode = topicNameDialogMode,
+        topicNameDialogTopicId = topicNameDialogTopicId,
+        topicValidationMessage = topicValidationMessage,
+        deleteConfirmTopicId = deleteConfirmTopicId,
+        onConfirmCreateTopic = onConfirmCreateTopic,
+        onConfirmRenameTopic = onConfirmRenameTopic,
+        onConfirmDeleteTopic = onConfirmDeleteTopic,
+        onCloseTopicNameDialog = onCloseTopicNameDialog,
+        onCloseDeleteConfirmDialog = onCloseDeleteConfirmDialog,
+    )
+}
+
+@Composable
+fun TopicManagementDialogs(
+    topics: List<Topic>,
+    topicNameDialogMode: TopicNameDialogMode?,
+    topicNameDialogTopicId: String?,
+    topicValidationMessage: String?,
+    deleteConfirmTopicId: String?,
+    onConfirmCreateTopic: (String) -> Unit,
+    onConfirmRenameTopic: (String) -> Unit,
+    onConfirmDeleteTopic: () -> Unit,
+    onCloseTopicNameDialog: () -> Unit,
+    onCloseDeleteConfirmDialog: () -> Unit,
+) {
+    val renamingTopic = topics.firstOrNull { it.id == topicNameDialogTopicId }
     if (topicNameDialogMode != null) {
         TopicNameDialog(
             mode = topicNameDialogMode,
@@ -253,10 +279,24 @@ private fun TopicNameDialog(
         TopicNameDialogMode.RENAME -> "重命名主题"
     }
 
-    AlertDialog(
+    ArchiveDialog(
+        title = title,
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+        testTag = "topic-name-dialog",
+        actions = {
+            ArchiveDialogAction(
+                label = "取消",
+                onClick = onDismiss,
+                testTag = "topic-name-dialog-dismiss",
+            )
+            ArchiveDialogAction(
+                label = "确定",
+                onClick = { onConfirm(text) },
+                primary = true,
+                testTag = "topic-name-dialog-confirm",
+            )
+        },
+    ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = text,
@@ -278,25 +318,7 @@ private fun TopicNameDialog(
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(text) },
-                modifier = Modifier.testTag("topic-name-dialog-confirm"),
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.testTag("topic-name-dialog-dismiss"),
-            ) {
-                Text("取消")
-            }
-        },
-        modifier = Modifier.testTag("topic-name-dialog"),
-    )
+    }
 }
 
 @Composable
@@ -305,28 +327,28 @@ private fun DeleteConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ArchiveDialog(
+        title = "确认删除",
         onDismissRequest = onDismiss,
-        title = { Text("确认删除") },
-        text = {
-            Text("确定要删除主题 \"$topicTitle\" 吗？该主题下的所有内容也将被删除。")
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                modifier = Modifier.testTag("delete-confirm-dialog-confirm"),
-            ) {
-                Text("删除", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(
+        testTag = "delete-confirm-dialog",
+        actions = {
+            ArchiveDialogAction(
+                label = "取消",
                 onClick = onDismiss,
-                modifier = Modifier.testTag("delete-confirm-dialog-dismiss"),
-            ) {
-                Text("取消")
-            }
+                testTag = "delete-confirm-dialog-dismiss",
+            )
+            ArchiveDialogAction(
+                label = "删除",
+                onClick = onConfirm,
+                destructive = true,
+                testTag = "delete-confirm-dialog-confirm",
+            )
         },
-        modifier = Modifier.testTag("delete-confirm-dialog"),
-    )
+    ) {
+        Text(
+            text = "确定要删除主题 \"$topicTitle\" 吗？该主题下的所有内容也将被删除。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Black,
+        )
+    }
 }

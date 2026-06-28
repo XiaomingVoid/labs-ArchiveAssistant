@@ -16,6 +16,10 @@ val ImperialTextFont = FontFamily(
     Font(R.font.ma_shan_zheng_regular, FontWeight.Normal),
 )
 
+val ImperialStampFont = FontFamily(
+    Font(R.font.ling_dong_qi_che_chun_tang, FontWeight.Normal),
+)
+
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = ImperialDisplayFont,

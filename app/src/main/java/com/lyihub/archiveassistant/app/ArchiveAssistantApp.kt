@@ -6,7 +6,6 @@ import android.content.Context
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +46,8 @@ import com.lyihub.archiveassistant.ui.screens.ManagePane
 import com.lyihub.archiveassistant.ui.screens.MemorialBriefingPane
 import com.lyihub.archiveassistant.ui.screens.MemorialDemoOverlay
 import com.lyihub.archiveassistant.ui.screens.SettingsPane
-import com.lyihub.archiveassistant.ui.theme.ImperialIvory
+import com.lyihub.archiveassistant.ui.screens.TopicManagementDialogs
+import com.lyihub.archiveassistant.ui.components.XuanPaperBackground
 import kotlinx.coroutines.launch
 
 @Composable
@@ -134,7 +134,7 @@ fun ArchiveAssistantApp(
         LayoutMode.FOLDABLE -> "layout-mode-foldable"
     }
 
-    Box(
+    XuanPaperBackground(
         modifier = Modifier
             .fillMaxSize()
             .testTag(layoutModeTag),
@@ -521,8 +521,9 @@ private fun SinglePaneLayout(
             smartSummarizationMessage = state.smartSummarizationMessage,
             onTopicSelected = stateStore::openTopic,
             onOpenSettings = stateStore::openSettings,
-            onOpenManage = stateStore::openTopicManagement,
-            onCreateTopic = stateStore::openTopicManagementForCreate,
+            onCreateTopic = stateStore::openCreateTopicDialog,
+            onRenameTopic = stateStore::openRenameTopicDialog,
+            onDeleteTopic = stateStore::openDeleteConfirmDialog,
             onSearchQueryChanged = stateStore::updateHomeSearchQuery,
             onOpenClipboard = stateStore::openLatestClipboardDialog,
             onOpenMemorialDemo = onOpenMemorialDemo,
@@ -548,8 +549,9 @@ private fun SinglePaneLayout(
                     smartSummarizationMessage = state.smartSummarizationMessage,
                     onTopicSelected = stateStore::openTopic,
                     onOpenSettings = stateStore::openSettings,
-                    onOpenManage = stateStore::openTopicManagement,
-                    onCreateTopic = stateStore::openTopicManagementForCreate,
+                    onCreateTopic = stateStore::openCreateTopicDialog,
+                    onRenameTopic = stateStore::openRenameTopicDialog,
+                    onDeleteTopic = stateStore::openDeleteConfirmDialog,
                     onSearchQueryChanged = stateStore::updateHomeSearchQuery,
                     onOpenClipboard = stateStore::openLatestClipboardDialog,
                     onOpenMemorialDemo = onOpenMemorialDemo,
@@ -614,8 +616,9 @@ private fun SinglePaneLayout(
                     smartSummarizationMessage = state.smartSummarizationMessage,
                     onTopicSelected = stateStore::openTopic,
                     onOpenSettings = stateStore::openSettings,
-                    onOpenManage = stateStore::openTopicManagement,
-                    onCreateTopic = stateStore::openTopicManagementForCreate,
+                    onCreateTopic = stateStore::openCreateTopicDialog,
+                    onRenameTopic = stateStore::openRenameTopicDialog,
+                    onDeleteTopic = stateStore::openDeleteConfirmDialog,
                     onSearchQueryChanged = stateStore::updateHomeSearchQuery,
                     onOpenClipboard = stateStore::openLatestClipboardDialog,
                     onOpenMemorialDemo = onOpenMemorialDemo,
@@ -637,8 +640,7 @@ private fun WideWorkspaceLayout(
     val state = stateStore.state
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(ImperialIvory),
+            .fillMaxSize(),
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
             HomePane(
@@ -650,8 +652,9 @@ private fun WideWorkspaceLayout(
                 smartSummarizationMessage = state.smartSummarizationMessage,
                 onTopicSelected = stateStore::openTopic,
                 onOpenSettings = stateStore::openSettings,
-                onOpenManage = stateStore::openTopicManagement,
-                onCreateTopic = stateStore::openTopicManagementForCreate,
+                onCreateTopic = stateStore::openCreateTopicDialog,
+                onRenameTopic = stateStore::openRenameTopicDialog,
+                onDeleteTopic = stateStore::openDeleteConfirmDialog,
                 onSearchQueryChanged = stateStore::updateHomeSearchQuery,
                 onOpenClipboard = stateStore::openLatestClipboardDialog,
                 onOpenMemorialDemo = stateStore::closePanes,
@@ -705,27 +708,28 @@ private fun WideWorkspaceLayout(
                         isBenchmarkRunning = state.isBenchmarkRunning,
                     )
 
-                    AppPane.MANAGE -> ManagePane(
-                        topics = state.topics,
-                        itemsByTopic = state.itemsByTopic,
-                        onBack = stateStore::closePanes,
-                        onTopicSelected = stateStore::openTopic,
-                        onCreateTopic = stateStore::openCreateTopicDialog,
-                        onRenameTopic = stateStore::openRenameTopicDialog,
-                        onDeleteTopic = stateStore::openDeleteConfirmDialog,
-                        onConfirmCreateTopic = stateStore::confirmCreateTopic,
-                        onConfirmRenameTopic = stateStore::confirmRenameTopic,
-                        onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
-                        onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
-                        onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
-                        topicNameDialogMode = state.topicNameDialogMode,
-                        topicNameDialogTopicId = state.topicNameDialogTopicId,
-                        topicValidationMessage = state.topicValidationMessage,
-                        deleteConfirmTopicId = state.deleteConfirmTopicId,
+                    AppPane.MANAGE -> MemorialBriefingPane(
+                        pendingCount = state.topics.take(3).sumOf { topic ->
+                            ((state.itemsByTopic[topic.id]?.size ?: 0) + topic.title.length) % 3
+                        },
+                        onOpenMemorialDemo = onOpenMemorialDemo,
                     )
                 }
             }
         }
+
+        TopicManagementDialogs(
+            topics = state.topics,
+            topicNameDialogMode = state.topicNameDialogMode,
+            topicNameDialogTopicId = state.topicNameDialogTopicId,
+            topicValidationMessage = state.topicValidationMessage,
+            deleteConfirmTopicId = state.deleteConfirmTopicId,
+            onConfirmCreateTopic = stateStore::confirmCreateTopic,
+            onConfirmRenameTopic = stateStore::confirmRenameTopic,
+            onConfirmDeleteTopic = stateStore::confirmDeleteTopic,
+            onCloseTopicNameDialog = stateStore::closeTopicNameDialog,
+            onCloseDeleteConfirmDialog = stateStore::closeDeleteConfirmDialog,
+        )
 
     }
 }
