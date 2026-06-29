@@ -1114,7 +1114,7 @@ class ArchiveAssistantStateStoreTest {
         assertTrue(newItem.sourceUrl!!.startsWith(itemsDir.absolutePath))
         assertEquals("剪切板摘要.md", newItem.fileName)
         assertEquals(rawText, File(newItem.sourceUrl!!).readText())
-        assertEquals(rawText, newItem.fullText)
+        assertEquals("", newItem.fullText)
         assertEquals("剪切板摘要", newItem.title)
     }
 

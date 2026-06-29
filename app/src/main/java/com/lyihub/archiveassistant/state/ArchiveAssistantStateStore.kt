@@ -768,7 +768,7 @@ class ArchiveAssistantStateStore(
             contentType = storedContentType,
             title = result.title,
             summary = result.summary,
-            fullText = rawInput,
+            fullText = if (generatedMarkdownFile != null) "" else rawInput,
             sourceUrl = sourceUrl,
             documentFormat = storedDocumentFormat,
             fileName = generatedMarkdownFile?.name,
