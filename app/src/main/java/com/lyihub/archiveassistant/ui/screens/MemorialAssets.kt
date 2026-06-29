@@ -11,6 +11,8 @@ import kotlin.math.roundToInt
 
 internal class MemorialAssets(context: Context) {
   private val resources = context.resources
+  private val packageName = context.packageName
+  private val articleImageCache = mutableMapOf<String, Bitmap?>()
 
   val paperTexture: Bitmap? =
     BitmapFactory.decodeResource(
@@ -69,6 +71,12 @@ internal class MemorialAssets(context: Context) {
       R.drawable.memorial_completion_bg,
     )
 
+  val pendingNoteStampTexture: Bitmap? =
+    BitmapFactory.decodeResource(
+      resources,
+      R.drawable.pending_note_stamp,
+    )
+
   val coverCornerTexture: Bitmap? =
     BitmapFactory.decodeResource(
       resources,
@@ -81,6 +89,10 @@ internal class MemorialAssets(context: Context) {
 
   val stampTypeface: Typeface =
     ResourcesCompat.getFont(context, R.font.san_ji_xing_kai_jian_ti_cu) ?: heritageTypeface
+
+  val songTypeface: Typeface =
+    ResourcesCompat.getFont(context, R.font.dinglie_song_typeface)
+      ?: Typeface.create(Typeface.SERIF, Typeface.NORMAL)
 
   private val stampLikeTexture: Bitmap? =
     BitmapFactory.decodeResource(
@@ -115,6 +127,15 @@ internal class MemorialAssets(context: Context) {
       MemorialStamp.Reject,
       MemorialStamp.Dislike -> stampDislikeTexture
       MemorialStamp.Collapse -> null
+    }
+  }
+
+  fun articleImageFor(imageResName: String?): Bitmap? {
+    val normalized = imageResName?.trim().orEmpty()
+    if (normalized.isEmpty()) return null
+    return articleImageCache.getOrPut(normalized) {
+      val resourceId = resources.getIdentifier(normalized, "drawable", packageName)
+      if (resourceId == 0) null else BitmapFactory.decodeResource(resources, resourceId)
     }
   }
 

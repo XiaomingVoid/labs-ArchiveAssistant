@@ -1073,7 +1073,11 @@ class ArchiveAssistantStateStoreTest {
     store.updateAiSettings(AiEngineSettings(engineType = AiEngineType.LOCAL_MODEL))
     store.updateParserInput("local inference note")
     store.submitParserInput()
-    waitUntil { !store.state.isSmartSummarizing }
+    waitUntil {
+      inferenceConnection.summarizeCallCount == 1 &&
+        !store.state.isSmartSummarizing &&
+        store.state.items.any { it.title == "本地摘要标题" }
+    }
     assertEquals(LocalModelStatus.READY, store.state.localModelState.status)
 
     store.stopModel()

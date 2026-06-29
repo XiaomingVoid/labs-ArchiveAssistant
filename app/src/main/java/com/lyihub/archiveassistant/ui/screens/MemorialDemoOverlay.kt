@@ -71,6 +71,7 @@ private fun buildPendingDossiers(items: List<KnowledgeItem>): List<PendingMemori
         summary = item.summary.ifBlank { item.fullText.lineSequence().firstOrNull().orEmpty() },
         body = readingBody(item),
         tags = articleTagsFromFullText(item.fullText),
+        imageResName = item.imageResName,
         createdAtEpochMillis = item.createdAtEpochMillis,
       )
     }

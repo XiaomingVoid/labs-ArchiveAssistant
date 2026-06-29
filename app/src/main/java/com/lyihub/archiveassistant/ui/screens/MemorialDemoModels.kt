@@ -15,6 +15,7 @@ internal data class MemorialPage(
   val pageNumber: String,
   val dossierIndex: Int = 0,
   val bodySegmentIndex: Int = 0,
+  val bodyText: String? = null,
 )
 
 internal data class ArticleLayout(
@@ -94,6 +95,7 @@ internal data class PendingMemorialDossier(
   val summary: String,
   val body: String,
   val tags: List<String>,
+  val imageResName: String? = null,
   val createdAtEpochMillis: Long,
 )
 
@@ -135,11 +137,21 @@ internal fun buildMemorialPagesForDossier(
   dossierIndex: Int,
   dossier: PendingMemorialDossier,
 ): List<MemorialPage> {
-  val bodySegments = splitMemorialBody(dossier.body)
+  return buildMemorialPagesForBodySegments(
+    dossierIndex = dossierIndex,
+    bodySegments = splitMemorialBody(dossier.body),
+  )
+}
+
+internal fun buildMemorialPagesForBodySegments(
+  dossierIndex: Int,
+  bodySegments: List<String>,
+): List<MemorialPage> {
+  val normalizedSegments = bodySegments.ifEmpty { listOf("此奏章暂无正文。") }
   return buildList {
     add(MemorialPage(MemorialPageType.Cover, pageNumeral(size + 1), dossierIndex))
     add(MemorialPage(MemorialPageType.Directory, pageNumeral(size + 1), dossierIndex))
-    bodySegments.forEachIndexed { segmentIndex, _ ->
+    normalizedSegments.forEachIndexed { segmentIndex, segment ->
       add(
         MemorialPage(
           type =
@@ -151,6 +163,7 @@ internal fun buildMemorialPagesForDossier(
           pageNumber = pageNumeral(size + 1),
           dossierIndex = dossierIndex,
           bodySegmentIndex = segmentIndex,
+          bodyText = segment,
         )
       )
     }
@@ -198,7 +211,7 @@ internal fun splitMemorialBody(body: String): List<String> {
   return segments.ifEmpty { listOf("此奏章暂无正文。") }
 }
 
-private fun pageNumeral(number: Int): String {
+internal fun pageNumeral(number: Int): String {
   val numerals = listOf("零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖", "拾")
   return when {
     number in numerals.indices -> numerals[number]
