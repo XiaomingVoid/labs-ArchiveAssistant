@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -64,6 +65,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 private const val MemorialCoverAspect = 1f / 2f
 private const val MemorialWheelItemCount = 20
@@ -73,6 +75,7 @@ private const val MemorialWheelActiveScale = 1.58f
 private const val MemorialWheelFocusHalfRangeDegrees = 24f
 private const val MemorialWheelCoverSeed = 20260627
 private const val MemorialWheelDuplicateGuard = 3
+private const val MemorialWheelAutoAdvanceMillis = 2800L
 private val MemorialInk = Color.Black
 
 private data class BriefingSample(
@@ -132,6 +135,7 @@ private fun MemorialCoverWheel(
     modifier: Modifier = Modifier,
 ) {
     var wheelRotation by remember { mutableFloatStateOf(0f) }
+    var dragSession by remember { mutableIntStateOf(0) }
     val stepDegrees = 360f / MemorialWheelItemCount
     val shuffledCoverResources = remember(coverResources) {
         buildWheelCoverSequence(
@@ -141,6 +145,15 @@ private fun MemorialCoverWheel(
         )
     }
     if (shuffledCoverResources.isEmpty()) return
+    LaunchedEffect(dragSession, stepDegrees) {
+        while (true) {
+            delay(MemorialWheelAutoAdvanceMillis)
+            val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
+            val nextRotation = snappedRotation - stepDegrees
+            wheelRotation = nextRotation
+            onActiveIndexChanged(activeWheelIndex(nextRotation, stepDegrees))
+        }
+    }
     val animatedWheelRotation by animateFloatAsState(
         targetValue = wheelRotation,
         animationSpec = spring(
@@ -153,6 +166,9 @@ private fun MemorialCoverWheel(
         modifier = modifier
             .pointerInput(Unit) {
                 detectDragGestures(
+                    onDragStart = {
+                        dragSession++
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         val updatedRotation = wheelRotation + dragAmount.y * MemorialWheelDragDegreesPerPixel
@@ -163,33 +179,37 @@ private fun MemorialCoverWheel(
                         val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
                         wheelRotation = snappedRotation
                         onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
+                        dragSession++
                     },
                     onDragCancel = {
                         val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
                         wheelRotation = snappedRotation
                         onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
+                        dragSession++
                     },
                 )
             },
     ) {
         val panelMin = min(maxWidth.value, maxHeight.value).dp
         val radius = panelMin * 0.66f
-        val innerRadius = radius * 0.63f
+        val innerRadius = radius * 0.72f
         val wheelCenterX = maxWidth + 58.dp
         val centerY = maxHeight * 0.67f
         val cardWidth = 72.dp
-        val pendingStampHeight = 186.dp
-        val pendingStampWidth = 66.dp
+        val pendingStampLines = pendingStampLines(pendingCount)
+        val pendingStampHeight = 42.dp + 31.dp * pendingStampLines.size
+        val pendingStampWidth = 70.dp
         val startDegrees = MemorialActiveSlotDegrees + animatedWheelRotation
 
         MemorialWheelInnerDisc(
             centerX = wheelCenterX,
             centerY = centerY,
             radius = innerRadius,
-            contentOffsetX = -innerRadius * 0.54f,
+            contentOffsetX = -innerRadius * 0.7f,
             modifier = Modifier.fillMaxSize(),
         )
         PendingVerticalNote(
+            lines = pendingStampLines,
             modifier = Modifier
                 .offset(x = 20.dp, y = centerY - pendingStampHeight / 2f)
                 .width(pendingStampWidth)
@@ -228,6 +248,7 @@ private fun MemorialCoverWheel(
 
 @Composable
 private fun PendingVerticalNote(
+    lines: List<String>,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -241,17 +262,22 @@ private fun PendingVerticalNote(
             contentScale = ContentScale.FillBounds,
         )
         Text(
-            text = "待\n批\n奏\n章",
+            text = lines.joinToString("\n"),
             style = MaterialTheme.typography.headlineLarge.copy(fontFamily = ImperialStampFont),
             color = Color.White,
             textAlign = TextAlign.Center,
             lineHeight = 31.sp,
             modifier = Modifier
                 .align(Alignment.Center)
-                .width(34.dp)
-                .padding(horizontal = 1.dp, vertical = 2.dp),
+                .width(38.dp)
+                .padding(horizontal = 1.dp, vertical = 3.dp),
         )
     }
+}
+
+private fun pendingStampLines(pendingCount: Int): List<String> {
+    val normalizedCount = pendingCount.coerceAtLeast(0)
+    return "待批${normalizedCount}封".map { it.toString() }
 }
 
 private data class WheelItemPlacement(
