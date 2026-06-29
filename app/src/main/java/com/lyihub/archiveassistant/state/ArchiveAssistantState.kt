@@ -91,7 +91,6 @@ data class ArchiveAssistantState(
 
     val recentTopics: List<Topic> = topics
         .sortedByDescending { it.updatedAtEpochMillis }
-        .take(5)
 
     val searchedTopics: List<Topic> = if (homeSearchQuery.isBlank()) {
         recentTopics

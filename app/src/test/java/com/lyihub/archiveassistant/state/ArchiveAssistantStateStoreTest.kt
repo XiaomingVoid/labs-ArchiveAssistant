@@ -53,6 +53,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveAssistantStateStoreTest {
@@ -224,7 +226,7 @@ class ArchiveAssistantStateStoreTest {
     }
 
     @Test
-    fun submitParserInput_whenSmartSummarizeSucceeds_addsItemFromOriginalInput() {
+    fun submitParserInput_whenSmartSummarizeReturnsWebForPlainText_savesMarkdownDocument() {
         val summarizer = FakeSmartSummarizer(
             SmartSummarizeResult.Success(
                 topicId = SixMinistry.WORKS.id,
@@ -248,12 +250,12 @@ class ArchiveAssistantStateStoreTest {
         assertEquals(initialItemCount + 1, store.state.items.size)
         assertEquals("item-classified-${initialItemCount + 1}", newItem.id)
         assertEquals(SixMinistry.WORKS.id, newItem.topicId)
-        assertEquals(ContentType.WEB_ARTICLE, newItem.contentType)
+        assertEquals(ContentType.DOCUMENT, newItem.contentType)
         assertEquals("智能摘要标题", newItem.title)
         assertEquals("智能摘要内容", newItem.summary)
         assertEquals("Original raw text without URL", newItem.fullText)
-        assertEquals("https://example.com/smart", newItem.sourceUrl)
-        assertEquals(DocumentFormat.UNKNOWN, newItem.documentFormat)
+        assertNull(newItem.sourceUrl)
+        assertEquals(DocumentFormat.MARKDOWN, newItem.documentFormat)
         assertEquals("", store.state.parserInput)
         assertFalse(store.state.isSmartSummarizing)
         assertNull(store.state.smartSummarizationMessage)
@@ -297,24 +299,38 @@ class ArchiveAssistantStateStoreTest {
     }
 
     @Test
-    fun submitParserInput_whenEmbeddedUrlFetchSucceeds_passesOriginalInputAndFetchedContext() {
+    fun submitParserInput_whenEmbeddedUrl_savesMarkdownDocumentWithoutFetching() {
         val fetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Success(fetchedContent()))
-        val summarizer = FakeSmartSummarizer(successResult(title = "Embedded URL summary"))
+        val summarizer = FakeSmartSummarizer(
+            SmartSummarizeResult.Success(
+                topicId = SixMinistry.WORKS.id,
+                contentType = ContentType.WEB_ARTICLE,
+                title = "Embedded URL summary",
+                summary = "Summary from mixed text",
+                documentFormat = DocumentFormat.UNKNOWN,
+                sourceUrl = "https://example.com/a",
+            )
+        )
         val store = smartStore(summarizer, fetcher)
+        val initialItemCount = store.state.items.size
 
         store.updateParserInput("read this https://example.com/a")
         store.submitParserInput()
         waitUntil { !store.state.isSmartSummarizing }
 
         val request = summarizer.requests.single()
-        assertEquals(1, fetcher.callCount)
-        assertEquals("https://example.com/a", fetcher.originalUrls.single())
-        assertEquals("https://example.com/a", fetcher.fetchUrls.single())
+        assertEquals(0, fetcher.callCount)
         assertEquals("read this https://example.com/a", request.rawText)
-        assertEquals("https://example.com/a", request.sourceUrl)
-        assertEquals("Fetched Page Title", request.sourceTitle)
-        assertEquals("Fetched body text for the summarizer", request.fetchedWebContext?.bodyText)
-        assertTrue(store.state.items.any { it.title == "Embedded URL summary" })
+        assertNull(request.sourceUrl)
+        assertNull(request.sourceTitle)
+        assertNull(request.fetchedWebContext)
+        val newItem = store.state.items.last()
+        assertEquals(initialItemCount + 1, store.state.items.size)
+        assertEquals(ContentType.DOCUMENT, newItem.contentType)
+        assertEquals(DocumentFormat.MARKDOWN, newItem.documentFormat)
+        assertNull(newItem.sourceUrl)
+        assertEquals("read this https://example.com/a", newItem.fullText)
+        assertEquals("Embedded URL summary", newItem.title)
     }
 
     @Test
@@ -719,11 +735,12 @@ class ArchiveAssistantStateStoreTest {
     }
 
     @Test
-    fun recentTopics_returnsTopFiveByUpdatedAtDescending() {
+    fun recentTopics_returnsAllTopicsByUpdatedAtDescending() {
         val store = ArchiveAssistantStateStore()
 
         val recent = store.state.recentTopics
-        assertEquals(5, recent.size)
+        assertEquals(SixMinistry.entries.size, recent.size)
+        assertEquals(SixMinistry.entries.map { it.id }.toSet(), recent.map { it.id }.toSet())
         assertTrue(recent.zipWithNext { a, b -> a.updatedAtEpochMillis >= b.updatedAtEpochMillis }.all { it })
     }
 
@@ -1058,6 +1075,50 @@ class ArchiveAssistantStateStoreTest {
     }
 
     @Test
+    fun acceptClipboardAndSummarize_whenPlainTextClipboardIsMisclassifiedAsWeb_savesMarkdownDocument() {
+        val rawText = "整理这段笔记，关联 archiveassistant://note/42 但这不是网页链接"
+        val itemsDir = Files.createTempDirectory("archive-assistant-items").toFile()
+        val summarizer = FakeSmartSummarizer(
+            SmartSummarizeResult.Success(
+                topicId = SixMinistry.WORKS.id,
+                contentType = ContentType.WEB_ARTICLE,
+                title = "剪切板摘要",
+                summary = "剪切板摘要内容",
+                documentFormat = DocumentFormat.UNKNOWN,
+                sourceUrl = "archiveassistant://note/42",
+            )
+        )
+        val store = smartStore(summarizer, itemsDir = itemsDir)
+        val initialItemCount = store.state.items.size
+
+        store.showClipboard(
+            content = rawText,
+            sourceContentType = ContentType.DOCUMENT,
+            sourceDocumentFormat = DocumentFormat.TXT,
+            sourceLabel = "剪切板",
+        )
+        store.acceptClipboardAndSummarize()
+        waitUntil { !store.state.isSmartSummarizing }
+
+        val request = summarizer.requests.single()
+        assertEquals(rawText, request.rawText)
+        assertNull(request.sourceUrl)
+        assertNull(request.fetchedWebContext)
+        assertNull(request.fetchedDocumentContext)
+
+        val newItem = store.state.items.last()
+        assertEquals(initialItemCount + 1, store.state.items.size)
+        assertEquals(ContentType.DOCUMENT, newItem.contentType)
+        assertEquals(DocumentFormat.MARKDOWN, newItem.documentFormat)
+        assertNotNull(newItem.sourceUrl)
+        assertTrue(newItem.sourceUrl!!.startsWith(itemsDir.absolutePath))
+        assertEquals("剪切板摘要.md", newItem.fileName)
+        assertEquals(rawText, File(newItem.sourceUrl!!).readText())
+        assertEquals(rawText, newItem.fullText)
+        assertEquals("剪切板摘要", newItem.title)
+    }
+
+    @Test
     fun acceptClipboardAndSummarize_whenAiFails_keepsClipboardPopupOpenAndSavesNothing() {
         val summarizer = FakeSmartSummarizer(SmartSummarizeResult.Failure("剪切板总结失败"))
         val store = smartStore(summarizer)
@@ -1343,7 +1404,7 @@ class ArchiveAssistantStateStoreTest {
         }
         val store = ArchiveAssistantStateStore(appDataRepository = AppDataRepository(dataStore))
 
-        waitUntil { store.state.items.any { it.id == legacyItem.id } }
+        waitUntil { store.state.items.any { it.id == legacyItem.id } && dataStore.updateCount == 1 }
 
         assertEquals(SixMinistry.entries.size, store.state.topics.size)
         assertEquals(SixMinistry.TREASURY.id, store.state.items.single { it.id == legacyItem.id }.topicId)
@@ -1525,9 +1586,11 @@ class ArchiveAssistantStateStoreTest {
     private fun smartStore(
         summarizer: SmartSummarizer,
         webPageContentFetcher: WebPageContentFetcher = FakeWebPageContentFetcher(WebPageContentFetchResult.Failure("unexpected fetch")),
+        itemsDir: File? = null,
     ) = ArchiveAssistantStateStore(
         smartSummarizer = summarizer,
         webPageContentFetcher = webPageContentFetcher,
+        itemsDirProvider = itemsDir?.let { dir -> { dir } },
     )
 
     private fun smartStore(result: SmartSummarizeResult) = smartStore(FakeSmartSummarizer(result))

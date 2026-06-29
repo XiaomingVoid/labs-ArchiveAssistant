@@ -79,8 +79,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.lyihub.archiveassistant.data.copyUriToFile
 import com.lyihub.archiveassistant.data.importFileName
+import com.lyihub.archiveassistant.data.markdownFileName
 import com.lyihub.archiveassistant.data.resolveDisplayName
 import com.lyihub.archiveassistant.data.uniqueImportFile
+import com.lyihub.archiveassistant.data.writeMarkdownFile
 import java.io.File
 
 private val DetailTabTypes = listOf(
@@ -92,27 +94,8 @@ private val DetailTabTypes = listOf(
 
 private const val FileProviderAuthoritySuffix = ".fileprovider"
 
-private fun markdownFileName(title: String): String {
-    val baseName = title
-        .lineSequence()
-        .firstOrNull()
-        .orEmpty()
-        .trim()
-        .take(48)
-        .replace(Regex("[\\\\/:*?\"<>|]+"), "-")
-        .ifBlank { "clipboard-note" }
-    return if (baseName.endsWith(".md", ignoreCase = true)) baseName else "$baseName.md"
-}
-
 private fun writeMarkdownPrefillFile(context: Context, title: String, content: String): File? {
-    return try {
-        val itemsDir = File(context.filesDir, "items").also { it.mkdirs() }
-        val dest = uniqueImportFile(itemsDir, markdownFileName(title))
-        dest.writeText(content)
-        dest
-    } catch (_: Exception) {
-        null
-    }
+    return writeMarkdownFile(File(context.filesDir, "items"), title, content)
 }
 
 @Composable

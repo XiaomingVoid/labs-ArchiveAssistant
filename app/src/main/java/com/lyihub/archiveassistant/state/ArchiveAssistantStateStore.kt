@@ -17,6 +17,7 @@ import com.lyihub.archiveassistant.data.DocumentContentExtractionResult
 import com.lyihub.archiveassistant.data.DocumentContentExtractor
 import com.lyihub.archiveassistant.data.WebPageContentFetcher
 import com.lyihub.archiveassistant.data.WebPageContentFetchResult
+import com.lyihub.archiveassistant.data.writeMarkdownFile
 import com.lyihub.archiveassistant.domain.AiEngineSettings
 import com.lyihub.archiveassistant.domain.AiEngineType
 import com.lyihub.archiveassistant.domain.AppPane
@@ -69,6 +70,9 @@ class ArchiveAssistantStateStore(
     private val webPageContentFetcher: WebPageContentFetcher = DefaultWebPageContentFetcher(),
     documentContentExtractor: DocumentContentExtractor? = null,
     androidContext: Context? = null,
+    val itemsDirProvider: (() -> File)? = androidContext?.let { context ->
+        { File(context.filesDir, "items") }
+    },
 ) {
     private val appContext = androidContext
     private val documentContentExtractor = documentContentExtractor
@@ -649,11 +653,12 @@ class ArchiveAssistantStateStore(
     }
 
     private suspend fun createSmartSummarizeRequest(rawInput: String): Result<SmartSummarizeRequest> {
-        documentSummarizeSource()?.let { source ->
+        documentSummarizeSource(rawInput)?.let { source ->
             return createDocumentSmartSummarizeRequest(rawInput, source)
         }
 
         val detected = WebUrlDetector.detect(rawInput)
+            ?.takeIf { it.isBare }
             ?: return Result.success(SmartSummarizeRequest(rawText = rawInput))
 
         return when (val fetched = webPageContentFetcher.fetch(detected.originalUrl, detected.fetchUrl)) {
@@ -738,16 +743,35 @@ class ArchiveAssistantStateStore(
 
         val itemIndex = nextItemIndex
         val now = System.currentTimeMillis()
-        val sourceUrl = result.sourceUrl ?: rawInput.extractSourceUrl(result.contentType)
+        val isPlainTextInput = !rawInput.isBareWebUrl() && !isDocumentOnlyClipboardInput(rawInput)
+        val storedContentType = if (isPlainTextInput && result.contentType == ContentType.WEB_ARTICLE) {
+            ContentType.DOCUMENT
+        } else {
+            result.contentType
+        }
+        val storedDocumentFormat = if (storedContentType == ContentType.DOCUMENT && isPlainTextInput) {
+            DocumentFormat.MARKDOWN
+        } else {
+            result.documentFormat
+        }
+        val generatedMarkdownFile = if (storedContentType == ContentType.DOCUMENT && isPlainTextInput) {
+            writeSmartMarkdownDocument(result.title, rawInput)
+        } else {
+            null
+        }
+        val sourceUrl = generatedMarkdownFile?.absolutePath
+            ?: result.sourceUrl.takeIf { storedContentType == ContentType.WEB_ARTICLE }
+            ?: rawInput.extractSourceUrl(storedContentType)
         val item = KnowledgeItem(
             id = "item-classified-$itemIndex",
             topicId = resolvedTopicId,
-            contentType = result.contentType,
+            contentType = storedContentType,
             title = result.title,
             summary = result.summary,
             fullText = rawInput,
             sourceUrl = sourceUrl,
-            documentFormat = result.documentFormat,
+            documentFormat = storedDocumentFormat,
+            fileName = generatedMarkdownFile?.name,
             createdAtEpochMillis = now,
         )
         val topics = state.topics.map { topic ->
@@ -1068,14 +1092,26 @@ class ArchiveAssistantStateStore(
             .firstOrNull { it.startsWith("http://") || it.startsWith("https://") || it.startsWith("www.") }
     }
 
-    private fun documentSummarizeSource(): DocumentSummarizeSource? {
-        if (state.clipboardSourceContentType != ContentType.DOCUMENT) return null
+    private fun documentSummarizeSource(rawInput: String): DocumentSummarizeSource? {
+        if (!isDocumentOnlyClipboardInput(rawInput)) return null
         val sourceUri = state.clipboardSourceUri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return null
         return DocumentSummarizeSource(
             uri = sourceUri,
             format = state.clipboardSourceDocumentFormat ?: DocumentFormat.UNKNOWN,
             fileName = state.clipboardSourceFileName,
         )
+    }
+
+    private fun isDocumentOnlyClipboardInput(rawInput: String): Boolean {
+        if (state.clipboardSourceContentType != ContentType.DOCUMENT) return false
+        val sourceUri = state.clipboardSourceUri ?: return false
+        return state.clipboardContent.isNullOrBlank() &&
+            (rawInput == state.clipboardSourceFileName || rawInput == sourceUri)
+    }
+
+    private fun writeSmartMarkdownDocument(title: String, content: String): File? {
+        val itemsDir = itemsDirProvider?.invoke() ?: return null
+        return writeMarkdownFile(itemsDir, title, content)
     }
 
     private fun String.isBareWebUrl(): Boolean {
