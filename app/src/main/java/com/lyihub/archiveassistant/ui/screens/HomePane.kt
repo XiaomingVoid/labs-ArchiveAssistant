@@ -3,6 +3,7 @@ package com.lyihub.archiveassistant.ui.screens
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -76,7 +77,10 @@ private val HomeInk = ImperialUmber
 private val HomePaper = ImperialIvory
 private val ZhongshuWorkLight = Color(0xFF55DDEB)
 private val MenxiaWorkLight = Color(0xFFFFD166)
-private const val HomePulseSwitchMillis = 2000L
+private const val HomePulseCycleMillis = 1400
+private const val HomePulseCyclesPerTarget = 2
+private const val HomePulseRounds = 2
+private const val HomePulseTargetMillis = HomePulseCycleMillis * HomePulseCyclesPerTarget
 
 private enum class HomePulseTarget {
   Zhongshu,
@@ -193,10 +197,12 @@ private fun ColumnScope.HomeMosaic(
   var pulseRunId by remember { mutableStateOf(0) }
   LaunchedEffect(pulseRunId) {
     if (pulseRunId == 0) return@LaunchedEffect
-    pulseTarget = HomePulseTarget.Zhongshu
-    delay(HomePulseSwitchMillis)
-    pulseTarget = HomePulseTarget.Menxia
-    delay(HomePulseSwitchMillis)
+    repeat(HomePulseRounds) {
+      pulseTarget = HomePulseTarget.Zhongshu
+      delay(HomePulseTargetMillis.toLong())
+      pulseTarget = HomePulseTarget.Menxia
+      delay(HomePulseTargetMillis.toLong())
+    }
     pulseTarget = null
   }
   HomeHeaderRow(
@@ -309,66 +315,71 @@ private fun HomeFeatureCell(
   workLightColor: Color? = null,
   workLightAlignment: Alignment = Alignment.TopStart,
 ) {
-  CutoutCell(
+  Box(
     modifier =
-      modifier.fillMaxSize().clickable(enabled = enabled, onClick = onClick).testTag(testTag),
-    contentColor = contentColor,
-    tileVisual = tileVisual,
+      modifier.fillMaxSize().clickable(enabled = enabled, onClick = onClick).testTag(testTag)
   ) {
     TilePulseWave(
       active = pulseActive,
       color = tileVisual.borderColor,
       modifier = Modifier.matchParentSize(),
     )
+    CutoutCell(
+      modifier = Modifier.matchParentSize(),
+      contentColor = contentColor,
+      tileVisual = tileVisual,
+    ) {
+      HomeOrnament(
+        imageRes = ornamentRes,
+        modifier =
+          Modifier.align(ornamentAlignment)
+            .offset(x = ornamentOffsetX, y = ornamentOffsetY)
+            .size(ornamentSize)
+            .graphicsLayer(scaleX = if (mirrorOrnament) -1f else 1f),
+        alpha = if (large) 0.5f else 0.58f,
+        tint = ornamentTint,
+      )
+      if (label.isNotBlank()) {
+        Text(
+          text = label,
+          style = MaterialTheme.typography.labelMedium,
+          color = contentColor.copy(alpha = 0.7f),
+          modifier =
+            Modifier.align(Alignment.TopStart).padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+      }
+      Column(modifier = Modifier.align(textAlignment).padding(if (large) 18.dp else 12.dp)) {
+        Text(
+          text = title,
+          style =
+            if (large) {
+              MaterialTheme.typography.headlineMedium.copy(fontFamily = ImperialTitleFont)
+            } else {
+              MaterialTheme.typography.titleLarge.copy(fontFamily = ImperialTitleFont)
+            },
+          color = contentColor,
+          fontWeight = FontWeight.Normal,
+          maxLines = if (large) 2 else 1,
+        )
+        Text(
+          text = subtitle,
+          style =
+            if (large) {
+              MaterialTheme.typography.bodyMedium.copy(fontFamily = ImperialDisplayFont)
+            } else {
+              MaterialTheme.typography.bodySmall.copy(fontFamily = ImperialDisplayFont)
+            },
+          color = contentColor.copy(alpha = 0.76f),
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+    }
     if (workLightColor != null) {
       WorkBreathingLight(
         active = pulseActive,
         color = workLightColor,
         modifier = Modifier.align(workLightAlignment).padding(10.dp),
-      )
-    }
-    HomeOrnament(
-      imageRes = ornamentRes,
-      modifier =
-        Modifier.align(ornamentAlignment)
-          .offset(x = ornamentOffsetX, y = ornamentOffsetY)
-          .size(ornamentSize)
-          .graphicsLayer(scaleX = if (mirrorOrnament) -1f else 1f),
-      alpha = if (large) 0.5f else 0.58f,
-      tint = ornamentTint,
-    )
-    if (label.isNotBlank()) {
-      Text(
-        text = label,
-        style = MaterialTheme.typography.labelMedium,
-        color = contentColor.copy(alpha = 0.7f),
-        modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 12.dp, vertical = 10.dp),
-      )
-    }
-    Column(modifier = Modifier.align(textAlignment).padding(if (large) 18.dp else 12.dp)) {
-      Text(
-        text = title,
-        style =
-          if (large) {
-            MaterialTheme.typography.headlineMedium.copy(fontFamily = ImperialTitleFont)
-          } else {
-            MaterialTheme.typography.titleLarge.copy(fontFamily = ImperialTitleFont)
-          },
-        color = contentColor,
-        fontWeight = FontWeight.Normal,
-        maxLines = if (large) 2 else 1,
-      )
-      Text(
-        text = subtitle,
-        style =
-          if (large) {
-            MaterialTheme.typography.bodyMedium.copy(fontFamily = ImperialDisplayFont)
-          } else {
-            MaterialTheme.typography.bodySmall.copy(fontFamily = ImperialDisplayFont)
-          },
-        color = contentColor.copy(alpha = 0.76f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
       )
     }
   }
@@ -380,23 +391,28 @@ private fun WorkBreathingLight(
   color: Color,
   modifier: Modifier = Modifier,
 ) {
+  val intensity by
+    animateFloatAsState(
+      targetValue = if (active) 1f else 0f,
+      animationSpec = tween(durationMillis = 360, easing = LinearEasing),
+      label = "homeWorkLightIntensity",
+    )
   val progress = remember { Animatable(0f) }
   LaunchedEffect(active) {
-    if (active) {
+    if (!active) return@LaunchedEffect
+    while (active) {
       progress.snapTo(0f)
       progress.animateTo(
         targetValue = 1f,
-        animationSpec = tween(durationMillis = 1400, easing = LinearEasing),
+        animationSpec = tween(durationMillis = HomePulseCycleMillis, easing = LinearEasing),
       )
-    } else {
-      progress.snapTo(0f)
     }
   }
-  if (!active && progress.value <= 0f) return
   val wave = kotlin.math.sin(progress.value * Math.PI * 2.0).toFloat()
   val glow = ((wave + 1f) / 2f).coerceIn(0f, 1f)
+  val activeGlow = intensity * glow
   val dotSize = 8.dp
-  val haloSize = 30.dp
+  val haloSize = 34.dp
   Box(
     modifier = modifier.size(haloSize),
     contentAlignment = Alignment.Center,
@@ -405,16 +421,16 @@ private fun WorkBreathingLight(
       modifier =
         Modifier.matchParentSize()
           .graphicsLayer {
-            scaleX = 0.82f + glow * 0.28f
-            scaleY = 0.82f + glow * 0.28f
-            alpha = 0.18f + glow * 0.42f
+            scaleX = 0.72f + activeGlow * 0.48f
+            scaleY = 0.72f + activeGlow * 0.48f
+            alpha = 0.12f + intensity * 0.18f + activeGlow * 0.58f
           }
           .background(
             Brush.radialGradient(
               colors =
                 listOf(
-                  color.copy(alpha = 0.62f),
-                  color.copy(alpha = 0.18f),
+                  color.copy(alpha = 0.82f),
+                  color.copy(alpha = 0.28f),
                   Color.Transparent,
                 )
             ),
@@ -424,9 +440,13 @@ private fun WorkBreathingLight(
     Box(
       modifier =
         Modifier.size(dotSize)
-          .shadow(6.dp, RoundedCornerShape(999.dp), clip = false)
-          .background(color.copy(alpha = 0.82f + glow * 0.18f), RoundedCornerShape(999.dp))
-          .border(0.7.dp, Color.White.copy(alpha = 0.72f), RoundedCornerShape(999.dp))
+          .shadow(7.dp + 7.dp * intensity, RoundedCornerShape(999.dp), clip = false)
+          .background(color.copy(alpha = 0.3f + intensity * 0.66f), RoundedCornerShape(999.dp))
+          .border(
+            0.7.dp,
+            Color.White.copy(alpha = 0.34f + intensity * 0.46f),
+            RoundedCornerShape(999.dp),
+          )
     )
   }
 }
@@ -442,8 +462,12 @@ private fun TilePulseWave(
     if (active) {
       progress.snapTo(0f)
       progress.animateTo(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = 1400, easing = LinearEasing),
+        targetValue = HomePulseCyclesPerTarget.toFloat(),
+        animationSpec =
+          tween(
+            durationMillis = HomePulseCycleMillis * HomePulseCyclesPerTarget,
+            easing = LinearEasing,
+          ),
       )
     } else {
       progress.snapTo(0f)
@@ -453,12 +477,13 @@ private fun TilePulseWave(
   Box(
     modifier =
       modifier.drawBehind {
-        val maxStroke = size.minDimension * 0.075f
+        val maxStroke = size.minDimension * 0.085f
         val baseStroke = maxStroke.coerceAtLeast(2f)
-        repeat(3) { index ->
-          val phase = (progress.value + index * 0.24f).coerceIn(0f, 1f)
-          val inset = size.minDimension * 0.13f * phase
-          val alpha = (1f - phase).coerceIn(0f, 1f) * 0.34f
+        val cycleProgress = progress.value % 1f
+        repeat(2) { index ->
+          val phase = (cycleProgress + index * 0.5f) % 1f
+          val inset = size.minDimension * 0.28f * phase
+          val alpha = (1f - phase).coerceIn(0f, 1f) * 0.54f
           drawRoundRect(
             color = color.copy(alpha = alpha),
             topLeft = Offset(-inset, -inset),
