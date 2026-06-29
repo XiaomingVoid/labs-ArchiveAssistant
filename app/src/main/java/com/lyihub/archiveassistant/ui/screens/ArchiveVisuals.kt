@@ -22,6 +22,7 @@ internal data class ArchiveTileVisual(
 )
 
 internal val ArchiveCutCornerShape: Shape = FixedCutCornerShape(8)
+internal val ArchiveFlatCutShape: Shape = FlatCutCornerShape(8)
 
 private class FixedCutCornerShape(private val notchDp: Int) : Shape {
   override fun createOutline(
@@ -41,6 +42,29 @@ private class FixedCutCornerShape(private val notchDp: Int) : Shape {
         quadraticTo(notch, size.height - notch, 0f, size.height - notch)
         lineTo(0f, notch)
         quadraticTo(notch, notch, notch, 0f)
+        close()
+      }
+    return Outline.Generic(path)
+  }
+}
+
+private class FlatCutCornerShape(private val notchDp: Int) : Shape {
+  override fun createOutline(
+    size: Size,
+    layoutDirection: LayoutDirection,
+    density: Density,
+  ): Outline {
+    val notch = with(density) { notchDp.dp.toPx() }.coerceAtMost(size.minDimension * 0.28f)
+    val path =
+      Path().apply {
+        moveTo(notch, 0f)
+        lineTo(size.width - notch, 0f)
+        lineTo(size.width, notch)
+        lineTo(size.width, size.height - notch)
+        lineTo(size.width - notch, size.height)
+        lineTo(notch, size.height)
+        lineTo(0f, size.height - notch)
+        lineTo(0f, notch)
         close()
       }
     return Outline.Generic(path)
@@ -85,7 +109,7 @@ internal val FolderVisuals =
     ),
     FolderVisual(
       description = "按主题收束同类资料",
-      imageRes = R.drawable.tsieina_department_pattern_9611,
+      imageRes = R.drawable.tsieina_department_pattern_10412,
     ),
     FolderVisual(
       description = "保留可复查的摘录与来源",
@@ -93,7 +117,7 @@ internal val FolderVisuals =
     ),
     FolderVisual(
       description = "聚合技术、工具与实现线索",
-      imageRes = R.drawable.tsieina_department_pattern_10412,
+      imageRes = R.drawable.tsieina_department_pattern_9611,
     ),
     FolderVisual(
       description = "沉淀判断、风险与待复核内容",
@@ -104,6 +128,38 @@ internal val FolderVisuals =
       imageRes = R.drawable.tsieina_department_pattern_9610,
     ),
   )
+
+internal val SampleTopicIds =
+  listOf(
+    "topic-ai-architecture",
+    "topic-ui-inspiration",
+    "topic-anthropology-clips",
+    "topic-hidden-travel",
+    "topic-open-source-tools",
+    "topic-knowledge-workflows",
+  )
+
+internal val SampleTopicTitles =
+  listOf(
+    "大模型架构研究",
+    "UX/UI 灵感板",
+    "阅读剪报：人类学",
+    "冷门旅行地参考",
+    "开源工具收藏",
+    "知识管理方法",
+  )
+
+internal fun folderIndexForTopicId(topicId: String): Int {
+  return SampleTopicIds.indexOf(topicId).takeIf { it >= 0 } ?: 0
+}
+
+internal fun folderVisualForTopicId(topicId: String): FolderVisual {
+  return folderVisual(folderIndexForTopicId(topicId))
+}
+
+internal fun folderTitleForTopicId(topicId: String): String {
+  return SampleTopicTitles.getOrElse(folderIndexForTopicId(topicId)) { "尚书省" }
+}
 
 internal val MemorialCoverResources =
   listOf(

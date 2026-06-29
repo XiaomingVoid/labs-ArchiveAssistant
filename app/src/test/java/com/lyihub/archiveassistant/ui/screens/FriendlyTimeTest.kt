@@ -28,7 +28,7 @@ class FriendlyTimeTest {
 
   @Test
   fun friendlyTime_daysAgo_returnsDays() {
-    assertEquals("二天前", friendlyTime(fixedNow - 2 * 86_400_000, fixedNow))
+    assertEquals("两天前", friendlyTime(fixedNow - 2 * 86_400_000, fixedNow))
   }
 
   @Test

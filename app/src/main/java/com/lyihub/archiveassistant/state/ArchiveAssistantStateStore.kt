@@ -937,15 +937,11 @@ class ArchiveAssistantStateStore(
 
   fun openArticleReader(itemId: String) {
     val item = state.items.firstOrNull { it.id == itemId } ?: return
-    state = state.copy(selectedPane = AppPane.ARTICLE_READER, readingItem = item)
+    state = state.copy(readingItem = item)
   }
 
   fun closeArticleReader() {
-    state =
-      state.copy(
-        selectedPane = if (state.selectedTopicId == null) AppPane.TOPICS else AppPane.DETAIL,
-        readingItem = null,
-      )
+    state = state.copy(readingItem = null)
   }
 
   fun showClipboard(

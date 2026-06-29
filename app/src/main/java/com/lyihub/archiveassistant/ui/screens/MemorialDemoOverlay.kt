@@ -3,21 +3,41 @@ package com.lyihub.archiveassistant.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lyihub.archiveassistant.R
 import com.lyihub.archiveassistant.domain.KnowledgeItem
+import com.lyihub.archiveassistant.ui.theme.ImperialTitleFont
+import kotlinx.coroutines.delay
+
+private const val ReaderOverlayFadeMillis = 240
+private const val ReaderOverlayScaleMillis = 320
+private const val ReaderOverlayExitDelayMillis = 240L
 
 @Composable
 fun MemorialDemoOverlay(
@@ -26,49 +46,83 @@ fun MemorialDemoOverlay(
 ) {
   val foldView = remember { mutableStateOf<MemorialFoldView?>(null) }
   val dossiers = remember(items) { buildPendingDossiers(items) }
-  val dismissStarted = remember { mutableStateOf(false) }
-  val completeDismiss = {
-    onDismiss()
-  }
-  val autoDismiss = {
-    if (!dismissStarted.value) {
-      dismissStarted.value = true
+  var visible by remember { mutableStateOf(false) }
+  var closing by remember { mutableStateOf(false) }
+  var pendingDismiss by remember { mutableStateOf(false) }
+  val alpha by
+    animateFloatAsState(
+      targetValue = if (visible && !closing) 1f else 0f,
+      animationSpec = tween(durationMillis = ReaderOverlayFadeMillis),
+      label = "memorial-demo-alpha",
+    )
+  val scale by
+    animateFloatAsState(
+      targetValue = if (visible && !closing) 1f else 0.9f,
+      animationSpec = tween(durationMillis = ReaderOverlayScaleMillis),
+      label = "memorial-demo-scale",
+    )
+  LaunchedEffect(pendingDismiss) {
+    if (pendingDismiss) {
+      delay(ReaderOverlayExitDelayMillis)
       onDismiss()
     }
   }
+  val finishDismiss = {
+    pendingDismiss = true
+  }
+  val autoDismiss = {
+    if (!closing) {
+      closing = true
+      finishDismiss()
+    }
+  }
   val requestDismiss = {
-    if (!dismissStarted.value) {
-      dismissStarted.value = true
-      foldView.value?.closeWithAnimation(completeDismiss) ?: completeDismiss()
+    if (!closing) {
+      closing = true
+      foldView.value?.closeWithAnimation(finishDismiss) ?: finishDismiss()
     }
   }
 
+  LaunchedEffect(Unit) {
+    visible = true
+  }
   BackHandler(onBack = requestDismiss)
   MemorialImmersiveSystemUi(onDispose = { foldView.value = null })
 
   Box(
     modifier =
-      Modifier.fillMaxSize().background(Color(APP_BACKGROUND_BASE)).testTag("memorial-demo-overlay")
+      Modifier.fillMaxSize()
+        .background(Color(APP_BACKGROUND_BASE).copy(alpha = (alpha * 0.96f).coerceIn(0f, 1f)))
+        .testTag("memorial-demo-overlay")
   ) {
-    AndroidView(
-      factory = { context ->
-        MemorialFoldView(context).apply {
-          foldView.value = this
-          setAutoDismissHandler(autoDismiss)
-          setCloseAnimationFinishedHandler(autoDismiss)
-          setReaderMode(MemorialReaderMode.ReviewStack)
-          setDossiers(dossiers)
+    Box(
+      modifier =
+        Modifier.fillMaxSize().graphicsLayer {
+          this.alpha = alpha
+          scaleX = scale
+          scaleY = scale
         }
-      },
-      update = { view ->
-        foldView.value = view
-        view.setAutoDismissHandler(autoDismiss)
-        view.setCloseAnimationFinishedHandler(autoDismiss)
-        view.setReaderMode(MemorialReaderMode.ReviewStack)
-        view.setDossiers(dossiers)
-      },
-      modifier = Modifier.fillMaxSize(),
-    )
+    ) {
+      AndroidView(
+        factory = { context ->
+          MemorialFoldView(context).apply {
+            foldView.value = this
+            setAutoDismissHandler(autoDismiss)
+            setCloseAnimationFinishedHandler(autoDismiss)
+            setReaderMode(MemorialReaderMode.ReviewStack)
+            setDossiers(dossiers)
+          }
+        },
+        update = { view ->
+          foldView.value = view
+          view.setAutoDismissHandler(autoDismiss)
+          view.setCloseAnimationFinishedHandler(autoDismiss)
+          view.setReaderMode(MemorialReaderMode.ReviewStack)
+          view.setDossiers(dossiers)
+        },
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
   }
 }
 
@@ -81,6 +135,7 @@ fun ArticleMemorialReaderOverlay(
   val dossier = remember(item) { buildPendingDossier(item) }
   var visible by remember { mutableStateOf(false) }
   var closing by remember { mutableStateOf(false) }
+  var pendingDismiss by remember { mutableStateOf(false) }
   val alpha by
     animateFloatAsState(
       targetValue = if (visible && !closing) 1f else 0f,
@@ -93,8 +148,15 @@ fun ArticleMemorialReaderOverlay(
       animationSpec = tween(durationMillis = 360),
       label = "article-reader-scale",
     )
+  LaunchedEffect(pendingDismiss) {
+    if (pendingDismiss) {
+      delay(ReaderOverlayExitDelayMillis)
+      onDismiss()
+    }
+  }
   val completeDismiss = {
-    onDismiss()
+    closing = true
+    pendingDismiss = true
   }
   val requestDismiss = {
     if (!closing) {
@@ -125,31 +187,71 @@ fun ArticleMemorialReaderOverlay(
     modifier =
       Modifier.fillMaxSize()
         .background(Color(APP_BACKGROUND_BASE).copy(alpha = (0.94f * alpha).coerceIn(0f, 1f)))
-        .graphicsLayer {
+        .testTag("article-memorial-reader-overlay")
+  ) {
+    Box(
+      modifier =
+        Modifier.fillMaxSize().graphicsLayer {
           this.alpha = alpha
           scaleX = scale
           scaleY = scale
         }
-        .testTag("article-memorial-reader-overlay")
+    ) {
+      AndroidView(
+        factory = { context ->
+          MemorialFoldView(context).apply {
+            foldView.value = this
+            setReaderMode(MemorialReaderMode.ArticleReader)
+            setAutoDismissHandler(requestDismiss)
+            setCloseAnimationFinishedHandler(finishAfterViewClose)
+            setDossiers(listOf(dossier))
+          }
+        },
+        update = { view ->
+          foldView.value = view
+          view.setReaderMode(MemorialReaderMode.ArticleReader)
+          view.setAutoDismissHandler(requestDismiss)
+          view.setCloseAnimationFinishedHandler(finishAfterViewClose)
+          view.setDossiers(listOf(dossier))
+        },
+        modifier = Modifier.fillMaxSize(),
+      )
+      ReaderDismissButton(
+        onClick = requestDismiss,
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp),
+      )
+    }
+  }
+}
+
+@Composable
+private fun ReaderDismissButton(
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Box(
+    modifier =
+      modifier
+        .shadow(8.dp, ArchiveFlatCutShape, clip = false)
+        .background(Color.Transparent, ArchiveFlatCutShape)
+        .clickable(onClick = onClick)
+        .width(116.dp)
+        .height(42.dp),
+    contentAlignment = Alignment.Center,
   ) {
-    AndroidView(
-      factory = { context ->
-        MemorialFoldView(context).apply {
-          foldView.value = this
-          setReaderMode(MemorialReaderMode.ArticleReader)
-          setAutoDismissHandler(requestDismiss)
-          setCloseAnimationFinishedHandler(finishAfterViewClose)
-          setDossiers(listOf(dossier))
-        }
-      },
-      update = { view ->
-        foldView.value = view
-        view.setReaderMode(MemorialReaderMode.ArticleReader)
-        view.setAutoDismissHandler(requestDismiss)
-        view.setCloseAnimationFinishedHandler(finishAfterViewClose)
-        view.setDossiers(listOf(dossier))
-      },
+    Image(
+      painter = painterResource(id = R.drawable.memorial_button_bg),
+      contentDescription = null,
       modifier = Modifier.fillMaxSize(),
+      contentScale = ContentScale.FillBounds,
+    )
+    Text(
+      text = "收起",
+      style = MaterialTheme.typography.titleSmall.copy(fontFamily = ImperialTitleFont),
+      color = Color(0xFF3C3022),
+      fontWeight = FontWeight.Normal,
+      maxLines = 1,
+      modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
     )
   }
 }

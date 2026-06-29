@@ -270,6 +270,7 @@ private fun HomeFeatureCell(
   ornamentAlignment: Alignment = Alignment.CenterEnd,
   ornamentTint: Color? = null,
   mirrorOrnament: Boolean = false,
+  textAlignment: Alignment = Alignment.BottomStart,
 ) {
   CutoutCell(
     modifier =
@@ -295,7 +296,7 @@ private fun HomeFeatureCell(
         modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 12.dp, vertical = 10.dp),
       )
     }
-    Column(modifier = Modifier.align(Alignment.BottomStart).padding(if (large) 18.dp else 12.dp)) {
+    Column(modifier = Modifier.align(textAlignment).padding(if (large) 18.dp else 12.dp)) {
       Text(
         text = title,
         style =
@@ -378,8 +379,9 @@ private fun PalaceDashboardBlock(
             testTag = "workflow-menxia-cell",
             enabled = false,
             ornamentSize = 88.dp,
-            ornamentOffsetX = 20.dp,
-            mirrorOrnament = true,
+            ornamentOffsetX = (-10).dp,
+            ornamentAlignment = Alignment.CenterStart,
+            textAlignment = Alignment.BottomEnd,
           )
         }
         MemorialCell(
@@ -402,8 +404,8 @@ private fun PalaceDashboardBlock(
           onClick = onOpenClipboard,
           testTag = "clipboard-button",
           ornamentSize = 68.dp,
-          ornamentOffsetX = (-14).dp,
-          ornamentOffsetY = 12.dp,
+          ornamentOffsetX = (-8).dp,
+          ornamentOffsetY = 10.dp,
           ornamentAlignment = Alignment.TopEnd,
           ornamentTint = Color.White,
         )
@@ -433,7 +435,7 @@ private fun SearchCell(
     tileVisual = SearchTileVisual,
   ) {
     HomeOrnament(
-      imageRes = R.drawable.home_ornament_library,
+      imageRes = R.drawable.home_ornament_library_11138,
       modifier = Modifier.align(Alignment.CenterEnd).offset(x = 18.dp).size(112.dp),
       alpha = 0.66f,
     )
@@ -507,6 +509,7 @@ private fun MemorialCell(
         .testTag("memorial-entry-card"),
     contentColor = Color.White,
     tileVisual = MemorialTileVisual,
+    mirrorBackground = true,
   ) {
     HomeOrnament(
       imageRes = R.drawable.home_ornament_memorial,
@@ -721,7 +724,7 @@ private fun MinistryFoldCard(
           folder.topic?.let { onTopicSelected(it.id) }
         }
         .testTag("topic-card-${folder.id}"),
-    shape = RoundedCornerShape(7.dp),
+    shape = ArchiveFlatCutShape,
     foldIntensity = if (compact) 0.16f else 0.2f,
     showEndFold = true,
   ) {
@@ -949,6 +952,7 @@ private fun CutoutCell(
   modifier: Modifier,
   contentColor: Color,
   tileVisual: ArchiveTileVisual,
+  mirrorBackground: Boolean = false,
   content: @Composable BoxScopeWithContentColor.() -> Unit,
 ) {
   Box(
@@ -962,7 +966,8 @@ private fun CutoutCell(
     Image(
       painter = painterResource(id = tileVisual.backgroundRes),
       contentDescription = null,
-      modifier = Modifier.matchParentSize(),
+      modifier =
+        Modifier.matchParentSize().graphicsLayer(scaleX = if (mirrorBackground) -1f else 1f),
       contentScale = ContentScale.Crop,
     )
     Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.18f)))

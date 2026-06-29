@@ -90,6 +90,8 @@ private val MemorialInk = Color.Black
 private data class BriefingSample(
   val title: String,
   val body: String,
+  val departmentTitle: String,
+  @param:androidx.annotation.DrawableRes val departmentImageRes: Int,
 )
 
 private val BriefingSamples =
@@ -97,14 +99,20 @@ private val BriefingSamples =
     BriefingSample(
       title = "端侧模型突破摘要",
       body = "多篇材料指向端侧推理与系统级 AI 能力更新，适合优先判断是否进入今日重点。",
+      departmentTitle = "大模型架构研究",
+      departmentImageRes = R.drawable.tsieina_department_pattern_9617,
     ),
     BriefingSample(
       title = "折叠屏交互线索",
       body = "新增一条适合视频展示的双屏协同链路，可用于解释朝堂视角与批阅流程的关系。",
+      departmentTitle = "UX/UI 灵感板",
+      departmentImageRes = R.drawable.tsieina_department_pattern_10412,
     ),
     BriefingSample(
       title = "素材归档提醒",
       body = "国风纹样、封面图与瀑布流插图已形成一组可复用素材，需要决定归档主题。",
+      departmentTitle = "知识管理方法",
+      departmentImageRes = R.drawable.tsieina_department_pattern_9610,
     ),
   )
 
@@ -127,6 +135,7 @@ fun MemorialBriefingPane(
   ) {
     MemorialCoverWheel(
       coverResources = MemorialCoverResources,
+      briefingSamples = briefingSamples,
       pendingCount = pendingCount,
       onActiveIndexChanged = { activeBriefIndex = it },
       modifier = Modifier.fillMaxSize(),
@@ -147,6 +156,7 @@ fun MemorialBriefingPane(
 @Composable
 private fun MemorialCoverWheel(
   coverResources: List<Int>,
+  briefingSamples: List<BriefingSample>,
   pendingCount: Int,
   onActiveIndexChanged: (Int) -> Unit,
   modifier: Modifier = Modifier,
@@ -163,14 +173,19 @@ private fun MemorialCoverWheel(
       )
     }
   if (shuffledCoverResources.isEmpty()) return
+  fun advanceWheelByOneStep() {
+    val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
+    val nextRotation = snappedRotation - stepDegrees
+    wheelRotation = nextRotation
+    onActiveIndexChanged(activeWheelIndex(nextRotation, stepDegrees))
+  }
   LaunchedEffect(autoAdvanceEnabled, stepDegrees) {
     if (autoAdvanceEnabled) {
+      delay(500L)
+      advanceWheelByOneStep()
       while (true) {
         delay(MemorialWheelAutoAdvanceMillis)
-        val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
-        val nextRotation = normalizeWheelRotation(snappedRotation - stepDegrees, stepDegrees)
-        wheelRotation = nextRotation
-        onActiveIndexChanged(activeWheelIndex(nextRotation, stepDegrees))
+        advanceWheelByOneStep()
       }
     }
   }
@@ -199,15 +214,13 @@ private fun MemorialCoverWheel(
           },
           onDragEnd = {
             val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
-            val normalizedRotation = normalizeWheelRotation(snappedRotation, stepDegrees)
-            wheelRotation = normalizedRotation
-            onActiveIndexChanged(activeWheelIndex(normalizedRotation, stepDegrees))
+            wheelRotation = snappedRotation
+            onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
           },
           onDragCancel = {
             val snappedRotation = (wheelRotation / stepDegrees).roundToInt() * stepDegrees
-            val normalizedRotation = normalizeWheelRotation(snappedRotation, stepDegrees)
-            wheelRotation = normalizedRotation
-            onActiveIndexChanged(activeWheelIndex(normalizedRotation, stepDegrees))
+            wheelRotation = snappedRotation
+            onActiveIndexChanged(activeWheelIndex(snappedRotation, stepDegrees))
           },
         )
       }
@@ -265,6 +278,8 @@ private fun MemorialCoverWheel(
           radius = radius,
           width = cardWidth,
           focus = item.focus,
+          departmentTitle =
+            briefingSamples[floorMod(item.index, briefingSamples.size)].departmentTitle,
           modifier = Modifier.fillMaxSize(),
         )
       }
@@ -450,7 +465,7 @@ private fun MemorialWheelInnerDisc(
   modifier: Modifier = Modifier,
 ) {
   val diameter = radius * 2f
-  val iconSize = 64.dp
+  val iconSize = 84.dp
   Box(modifier = modifier) {
     Box(
       modifier =
@@ -499,6 +514,7 @@ private fun MemorialWheelCover(
   radius: Dp,
   width: Dp,
   focus: Float,
+  departmentTitle: String,
   modifier: Modifier = Modifier,
 ) {
   val coverScale = 1f + (MemorialWheelActiveScale - 1f) * focus
@@ -537,6 +553,20 @@ private fun MemorialWheelCover(
           )
           .padding(frameOutset)
     ) {
+      Text(
+        text = departmentTitle,
+        style = MaterialTheme.typography.titleSmall,
+        color = MemorialInk.copy(alpha = lerpFloat(0.0f, 0.82f, focus)),
+        fontWeight = FontWeight.Normal,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier =
+          Modifier.align(Alignment.TopCenter)
+            .offset(y = (-24).dp)
+            .width(frameWidth + 12.dp)
+            .graphicsLayer { alpha = focus },
+        textAlign = TextAlign.Center,
+      )
       Box(
         modifier =
           Modifier.fillMaxSize()
@@ -675,7 +705,7 @@ private fun BriefingCopy(
   ) {
     PaneHeroHeader(
       title = "奏章",
-      description = "轻触此页展开奏章堆叠，准、驳、留中皆可一笔批下。",
+      description = "轻触此页展开奏章堆叠，准、驳、留中皆可一笔批下",
       showBackButton = showBackButton,
       onBack = onBack,
       modifier = Modifier.fillMaxWidth(),
@@ -705,26 +735,35 @@ private fun MemorialBriefCard(
       label = "memorialBriefCardContent",
       modifier = Modifier.align(Alignment.CenterStart).fillMaxWidth(),
     ) { activeSample ->
-      Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-      ) {
-        Text(
-          text = activeSample.title,
-          style = MaterialTheme.typography.titleMedium,
-          color = MemorialInk,
-          fontWeight = FontWeight.Normal,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
+      Box(modifier = Modifier.fillMaxWidth()) {
+        Image(
+          painter = painterResource(id = activeSample.departmentImageRes),
+          contentDescription = null,
+          modifier = Modifier.align(Alignment.BottomEnd).size(66.dp),
+          contentScale = ContentScale.Fit,
+          alpha = 0.16f,
         )
-        Text(
-          text = activeSample.body,
-          style = MaterialTheme.typography.bodySmall.copy(fontFamily = ImperialDisplayFont),
-          color = MemorialInk.copy(alpha = 0.78f),
-          lineHeight = 17.sp,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
+        Column(
+          modifier = Modifier.fillMaxWidth().padding(end = 48.dp),
+          verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+          Text(
+            text = activeSample.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MemorialInk,
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = activeSample.body,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = ImperialDisplayFont),
+            color = MemorialInk.copy(alpha = 0.78f),
+            lineHeight = 17.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
       }
     }
   }
@@ -740,6 +779,8 @@ private fun briefingSamplesFor(items: List<KnowledgeItem>): List<BriefingSample>
         BriefingSample(
           title = item.title,
           body = item.summary,
+          departmentTitle = folderTitleForTopicId(item.topicId),
+          departmentImageRes = folderVisualForTopicId(item.topicId).imageRes,
         )
       }
       .toList()

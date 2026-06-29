@@ -70,9 +70,10 @@ internal fun buildEllipsizedTextLayout(
   width: Int,
   lineHeightMultiplier: Float,
   maxLines: Int,
+  alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
 ): StaticLayout {
   return StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
-    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+    .setAlignment(alignment)
     .setLineSpacing(0f, lineHeightMultiplier)
     .setIncludePad(false)
     .setMaxLines(maxLines)

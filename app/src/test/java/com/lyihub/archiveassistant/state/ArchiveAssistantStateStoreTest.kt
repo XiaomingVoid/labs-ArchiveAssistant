@@ -100,7 +100,7 @@ class ArchiveAssistantStateStoreTest {
 
     val itemId = store.state.selectedTopicItems.first().id
     store.openArticleReader(itemId)
-    assertEquals(AppPane.ARTICLE_READER, store.state.selectedPane)
+    assertEquals(AppPane.DETAIL, store.state.selectedPane)
     assertEquals(itemId, store.state.readingItem?.id)
 
     store.closeArticleReader()
@@ -758,13 +758,13 @@ class ArchiveAssistantStateStoreTest {
   }
 
   @Test
-  fun closeArticleReader_preservesSelectedTopic() {
+  fun articleReaderOverlay_preservesSelectedTopicPane() {
     val store = ArchiveAssistantStateStore()
     store.openTopic(SampleKnowledgeData.DefaultTopicId)
 
     val itemId = store.state.visibleSelectedTopicItems.first().id
     store.openArticleReader(itemId)
-    assertEquals(AppPane.ARTICLE_READER, store.state.selectedPane)
+    assertEquals(AppPane.DETAIL, store.state.selectedPane)
     assertEquals(itemId, store.state.readingItem?.id)
 
     store.closeArticleReader()

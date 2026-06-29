@@ -26,8 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -93,18 +94,7 @@ private val DetailPaperDeep = ImperialParchment
 private val DetailInk = Color.Black
 private val DetailCinnabar = ImperialCinnabar
 private val DetailCardCorner = 9.dp
-private val DetailTagChipShape = GenericShape { size, _ ->
-  val notch = size.minDimension * 0.26f
-  moveTo(notch, 0f)
-  lineTo(size.width - notch, 0f)
-  lineTo(size.width, notch)
-  lineTo(size.width, size.height - notch)
-  lineTo(size.width - notch, size.height)
-  lineTo(notch, size.height)
-  lineTo(0f, size.height - notch)
-  lineTo(0f, notch)
-  close()
-}
+private val DetailTagChipShape = ArchiveFlatCutShape
 
 private const val FileProviderAuthoritySuffix = ".fileprovider"
 
@@ -144,6 +134,16 @@ fun DetailPane(
 ) {
   val horizontalPadding = 24.dp
   val topPadding = 56.dp
+  val headerOverlayHeight = if (items.isEmpty()) 100.dp else 132.dp
+  val listState = rememberLazyListState()
+  val density = LocalDensity.current
+  val headerFadeDistancePx = with(density) { 58.dp.toPx() }
+  val headerAlpha =
+    if (listState.firstVisibleItemIndex > 0) {
+      0f
+    } else {
+      (1f - listState.firstVisibleItemScrollOffset / headerFadeDistancePx).coerceIn(0f, 1f)
+    }
   val availableTags =
     remember(items) {
       items.flatMap(::articleTags).distinct()
@@ -159,23 +159,14 @@ fun DetailPane(
     }
 
   PaneContainer(modifier = modifier.testTag("detail-pane")) {
-    Column(modifier = Modifier.fillMaxSize().weight(1f)) {
-      DetailCourtHeader(
-        topic = topic,
-        itemCount = items.size,
-        onBack = onBack,
-        modifier =
-          Modifier.padding(start = horizontalPadding, top = topPadding, end = horizontalPadding)
-            .fillMaxWidth(),
-        showBackButton = showBackButton,
-      )
-
+    Box(modifier = Modifier.fillMaxSize().weight(1f)) {
       LazyColumn(
-        modifier = Modifier.fillMaxWidth().weight(1f),
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
         contentPadding =
           PaddingValues(
             start = horizontalPadding,
-            top = 24.dp,
+            top = topPadding + headerOverlayHeight,
             end = horizontalPadding,
             bottom = 28.dp,
           ),
@@ -188,6 +179,35 @@ fun DetailPane(
           }
         } else {
           item {
+            if (filteredItems.isEmpty()) {
+              EmptyFilteredShelf(modifier = Modifier.fillMaxWidth())
+            } else {
+              ArticleMasonryGrid(
+                items = filteredItems,
+                onItemClick = onItemClick,
+                modifier = Modifier.fillMaxWidth(),
+              )
+            }
+          }
+        }
+      }
+      if (headerAlpha > 0.02f) {
+        Column(
+          modifier =
+            Modifier.align(Alignment.TopStart)
+              .padding(start = horizontalPadding, top = topPadding, end = horizontalPadding)
+              .fillMaxWidth()
+              .graphicsLayer { alpha = headerAlpha },
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          DetailCourtHeader(
+            topic = topic,
+            itemCount = items.size,
+            onBack = onBack,
+            modifier = Modifier.fillMaxWidth(),
+            showBackButton = showBackButton,
+          )
+          if (items.isNotEmpty()) {
             ArticleFilterBar(
               tags = availableTags,
               activeTags = activeTags,
@@ -201,17 +221,6 @@ fun DetailPane(
               },
               modifier = Modifier.fillMaxWidth(),
             )
-          }
-          item {
-            if (filteredItems.isEmpty()) {
-              EmptyFilteredShelf(modifier = Modifier.fillMaxWidth())
-            } else {
-              ArticleMasonryGrid(
-                items = filteredItems,
-                onItemClick = onItemClick,
-                modifier = Modifier.fillMaxWidth(),
-              )
-            }
           }
         }
       }
@@ -351,19 +360,8 @@ private fun DetailCourtHeader(
 }
 
 private fun folderDescription(topic: Topic): String {
-  val index = SampleTopicIds.indexOf(topic.id).takeIf { it >= 0 } ?: return "近期收藏与重点资料归档"
-  return folderVisual(index).description
+  return folderVisualForTopicId(topic.id).description
 }
-
-private val SampleTopicIds =
-  listOf(
-    "topic-ai-architecture",
-    "topic-ui-inspiration",
-    "topic-anthropology-clips",
-    "topic-hidden-travel",
-    "topic-open-source-tools",
-    "topic-knowledge-workflows",
-  )
 
 @Composable
 private fun MemorialArticleCard(
@@ -371,8 +369,8 @@ private fun MemorialArticleCard(
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val cardShape = RoundedCornerShape(DetailCardCorner)
-  val imageShape = RoundedCornerShape(DetailCardCorner)
+  val cardShape = ArchiveFlatCutShape
+  val imageShape = ArchiveFlatCutShape
   val tags = articleTags(item)
   val imageResId = localArticleImageResId(item.imageResName)
   val imageLayout =

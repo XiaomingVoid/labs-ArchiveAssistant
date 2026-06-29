@@ -83,9 +83,9 @@ internal class MemorialPaints(
 
   val author =
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = AndroidColor.rgb(102, 102, 102)
+      color = AndroidColor.rgb(38, 38, 38)
       textSize = sp(12f)
-      typeface = assets.heritageTypeface
+      typeface = assets.songTypeface
     }
 
   val title =
@@ -101,29 +101,29 @@ internal class MemorialPaints(
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
       color = AndroidColor.rgb(26, 26, 26)
       textSize = sp(18f)
-      typeface = assets.heritageTypeface
+      typeface = assets.songTypeface
       textAlign = Paint.Align.LEFT
     }
 
   val itemMeta =
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = AndroidColor.rgb(154, 126, 74)
+      color = AndroidColor.rgb(60, 48, 34)
       textSize = sp(12f)
-      typeface = assets.heritageTypeface
+      typeface = assets.songTypeface
       textAlign = Paint.Align.LEFT
     }
 
   val meta =
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = AndroidColor.rgb(154, 126, 74)
+      color = AndroidColor.rgb(60, 48, 34)
       textSize = sp(13f)
-      typeface = assets.heritageTypeface
+      typeface = assets.songTypeface
       textAlign = Paint.Align.CENTER
     }
 
   val cinnabar =
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = AndroidColor.rgb(184, 62, 47)
+      color = AndroidColor.rgb(230, 0, 18)
       textSize = sp(17f)
       typeface = assets.heritageTypeface
     }
