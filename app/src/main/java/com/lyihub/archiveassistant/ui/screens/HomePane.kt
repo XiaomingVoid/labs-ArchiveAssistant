@@ -44,12 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -78,8 +77,7 @@ private val HomePaper = ImperialIvory
 private val ZhongshuWorkLight = Color(0xFF55DDEB)
 private val MenxiaWorkLight = Color(0xFFFFD166)
 private const val HomePulseCycleMillis = 1400
-private const val HomePulseCyclesPerTarget = 2
-private const val HomePulseRounds = 2
+private const val HomePulseCyclesPerTarget = 1
 private const val HomePulseTargetMillis = HomePulseCycleMillis * HomePulseCyclesPerTarget
 
 private enum class HomePulseTarget {
@@ -197,12 +195,10 @@ private fun ColumnScope.HomeMosaic(
   var pulseRunId by remember { mutableStateOf(0) }
   LaunchedEffect(pulseRunId) {
     if (pulseRunId == 0) return@LaunchedEffect
-    repeat(HomePulseRounds) {
-      pulseTarget = HomePulseTarget.Zhongshu
-      delay(HomePulseTargetMillis.toLong())
-      pulseTarget = HomePulseTarget.Menxia
-      delay(HomePulseTargetMillis.toLong())
-    }
+    pulseTarget = HomePulseTarget.Zhongshu
+    delay(HomePulseTargetMillis.toLong())
+    pulseTarget = HomePulseTarget.Menxia
+    delay(HomePulseTargetMillis.toLong())
     pulseTarget = null
   }
   HomeHeaderRow(
@@ -477,31 +473,49 @@ private fun TilePulseWave(
   Box(
     modifier =
       modifier.drawBehind {
-        val maxStroke = size.minDimension * 0.085f
-        val baseStroke = maxStroke.coerceAtLeast(2f)
+        val baseStroke = (size.minDimension * 0.018f).coerceIn(1.2f, 2.4f)
         val cycleProgress = progress.value % 1f
         repeat(2) { index ->
           val phase = (cycleProgress + index * 0.5f) % 1f
           val inset = size.minDimension * 0.28f * phase
-          val alpha = (1f - phase).coerceIn(0f, 1f) * 0.54f
-          drawRoundRect(
+          val expandedSize =
+            Size(
+              width = size.width + inset * 2f,
+              height = size.height + inset * 2f,
+            )
+          val alpha = (1f - phase).coerceIn(0f, 1f) * 0.42f
+          drawPath(
+            path = cutoutPulsePath(expandedSize, inset),
             color = color.copy(alpha = alpha),
-            topLeft = Offset(-inset, -inset),
-            size =
-              Size(
-                width = size.width + inset * 2f,
-                height = size.height + inset * 2f,
-              ),
-            cornerRadius =
-              CornerRadius(
-                x = size.minDimension * 0.12f,
-                y = size.minDimension * 0.12f,
-              ),
-            style = Stroke(width = baseStroke * (1f - phase * 0.35f)),
+            style = Stroke(width = baseStroke * (1f - phase * 0.22f)),
           )
         }
       }
   )
+}
+
+private fun cutoutPulsePath(
+  size: Size,
+  outset: Float,
+): Path {
+  val notch = (8f + outset * 0.28f).coerceAtMost(size.minDimension * 0.24f)
+  return Path().apply {
+    moveTo(notch - outset, -outset)
+    lineTo(size.width - notch - outset, -outset)
+    quadraticTo(size.width - notch - outset, notch - outset, size.width - outset, notch - outset)
+    lineTo(size.width - outset, size.height - notch - outset)
+    quadraticTo(
+      size.width - notch - outset,
+      size.height - notch - outset,
+      size.width - notch - outset,
+      size.height - outset,
+    )
+    lineTo(notch - outset, size.height - outset)
+    quadraticTo(notch - outset, size.height - notch - outset, -outset, size.height - notch - outset)
+    lineTo(-outset, notch - outset)
+    quadraticTo(notch - outset, notch - outset, notch - outset, -outset)
+    close()
+  }
 }
 
 @Composable

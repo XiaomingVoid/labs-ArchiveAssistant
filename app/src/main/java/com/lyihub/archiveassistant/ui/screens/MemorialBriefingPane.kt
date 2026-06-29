@@ -74,7 +74,6 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlin.random.Random
 import kotlinx.coroutines.delay
 
 private const val MemorialCoverAspect = 1f / 2f
@@ -118,8 +117,6 @@ private val BriefingSamples =
       departmentImageRes = R.drawable.tsieina_department_pattern_9610,
     ),
   )
-
-private const val BriefingSampleSeed = 20260629
 
 @Composable
 fun MemorialBriefingPane(
@@ -683,21 +680,33 @@ private fun MemorialBriefCard(
 }
 
 private fun briefingSamplesFor(items: List<KnowledgeItem>): List<BriefingSample> {
-  val samples =
-    items
-      .asSequence()
-      .filter { item -> item.title.isNotBlank() && item.summary.isNotBlank() }
-      .shuffled(Random(BriefingSampleSeed))
-      .map { item ->
-        BriefingSample(
-          title = item.title,
-          body = item.summary,
-          departmentTitle = folderTitleForTopicId(item.topicId),
-          departmentImageRes = folderVisualForTopicId(item.topicId).imageRes,
-        )
-      }
-      .toList()
+  val samples = orderedBriefingItems(items).map(::briefingSampleFor)
   return samples.ifEmpty { BriefingSamples }
+}
+
+internal fun orderedBriefingItems(items: List<KnowledgeItem>): List<KnowledgeItem> {
+  val grouped = SampleTopicIds.associateWith { topicId ->
+    items.filter { item ->
+      item.topicId == topicId && item.title.isNotBlank() && item.summary.isNotBlank()
+    }
+  }
+  val maxCount = grouped.values.maxOfOrNull { it.size } ?: 0
+  return buildList {
+    repeat(maxCount) { roundIndex ->
+      SampleTopicIds.forEach { topicId ->
+        grouped[topicId]?.getOrNull(roundIndex)?.let(::add)
+      }
+    }
+  }
+}
+
+private fun briefingSampleFor(item: KnowledgeItem): BriefingSample {
+  return BriefingSample(
+    title = item.title,
+    body = item.summary,
+    departmentTitle = folderTitleForTopicId(item.topicId),
+    departmentImageRes = folderVisualForTopicId(item.topicId).imageRes,
+  )
 }
 
 @Composable
