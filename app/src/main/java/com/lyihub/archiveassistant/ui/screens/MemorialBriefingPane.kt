@@ -239,11 +239,11 @@ private fun MemorialCoverWheel(
       }
   ) {
     val panelMin = min(maxWidth.value, maxHeight.value).dp
-    val radius = panelMin * 0.66f
+    val radius = panelMin * 0.59f
     val innerRadius = radius * 0.69f
     val wheelCenterX = maxWidth + 58.dp
-    val centerY = maxHeight * 0.67f
-    val cardWidth = 72.dp
+    val centerY = maxHeight * 0.69f
+    val cardWidth = 58.dp
     val pendingStampLines = pendingStampLines(pendingCount)
     val pendingStampHeight = 14.dp + 31.dp * pendingStampLines.size
     val pendingStampWidth = 48.dp
@@ -391,7 +391,7 @@ private fun MemorialWheelInnerDisc(
   modifier: Modifier = Modifier,
 ) {
   val diameter = radius * 2f
-  val iconSize = 76.dp
+  val iconSize = 68.dp
   Box(modifier = modifier) {
     Box(
       modifier =
@@ -413,15 +413,15 @@ private fun MemorialWheelInnerDisc(
           colorFilter = ColorFilter.tint(MemorialInk),
         )
         Text(
-          text = "轻触阅读",
-          style = MaterialTheme.typography.titleLarge,
+          text = "轻触批阅",
+          style = MaterialTheme.typography.titleMedium,
           color = MemorialInk,
           fontWeight = FontWeight.Normal,
           textAlign = TextAlign.Center,
         )
         Text(
           text = "上下拨动奏章轮",
-          style = MaterialTheme.typography.bodyMedium,
+          style = MaterialTheme.typography.bodySmall,
           color = MemorialInk.copy(alpha = 0.78f),
           textAlign = TextAlign.Center,
         )

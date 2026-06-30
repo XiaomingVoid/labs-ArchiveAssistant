@@ -45,6 +45,13 @@ private enum class MemorialToolbarButton {
   Collapse,
 }
 
+private const val MemorialArticleAspect = 1f / 2f
+
+private data class SizeF(
+  val width: Float,
+  val height: Float,
+)
+
 internal class MemorialFoldView(context: Context) : View(context) {
   private val displayDensity = resources.displayMetrics.density
   private val scaledDensity = displayDensity * resources.configuration.fontScale
@@ -1652,8 +1659,9 @@ internal class MemorialFoldView(context: Context) : View(context) {
 
     val viewportWidth = (foldRight - foldLeft).coerceAtLeast(1f)
     val viewportHeight = (foldBottom - foldTop).coerceAtLeast(1f)
-    articleWidth = resolvedArticleWidthForViewport(viewportWidth)
-    val articleHeight = resolvedArticleHeightForViewport(viewportHeight)
+    val articleSize = resolvedArticleSizeForViewport(viewportWidth, viewportHeight)
+    articleWidth = articleSize.width
+    val articleHeight = articleSize.height
     val articleTop = foldTop + (viewportHeight - articleHeight) / 2f
     val contentWidth = (articleWidth - dp(80f)).roundToInt().coerceAtLeast(1)
     var nextLeft = 0f
@@ -1698,30 +1706,27 @@ internal class MemorialFoldView(context: Context) : View(context) {
   }
 
   private fun resolvedArticleWidth(viewWidth: Int): Float {
-    val viewportWidth = (viewWidth - dp(40f)).coerceAtLeast(1f)
-    return resolvedArticleWidthForViewport(viewportWidth)
+    return resolvedArticleSize(viewWidth, height).width
   }
 
   private fun resolvedArticleHeight(viewWidth: Int, viewHeight: Int): Float {
+    return resolvedArticleSize(viewWidth, viewHeight).height
+  }
+
+  private fun resolvedArticleSize(viewWidth: Int, viewHeight: Int): SizeF {
+    val viewportWidth = (viewWidth - dp(40f)).coerceAtLeast(1f)
     val viewportHeight = (viewHeight - dp(40f)).coerceAtLeast(1f)
-    return resolvedArticleHeightForViewport(viewportHeight)
+    return resolvedArticleSizeForViewport(viewportWidth, viewportHeight)
   }
 
-  private fun resolvedArticleWidthForViewport(viewportWidth: Float): Float {
-    val maxWidth =
-      if (viewportWidth >= dp(700f)) {
-        (viewportWidth / 2f).coerceAtMost(dp(600f))
-      } else {
-        viewportWidth.coerceAtMost(dp(600f))
-      }
-    val minWidth = min(dp(280f), viewportWidth)
-    return maxWidth.coerceAtLeast(minWidth).coerceAtMost(viewportWidth)
-  }
-
-  private fun resolvedArticleHeightForViewport(viewportHeight: Float): Float {
-    val maxHeight = min(dp(760f), viewportHeight * 0.78f)
-    val minHeight = min(dp(520f), viewportHeight * 0.72f)
-    return maxHeight.coerceAtLeast(minHeight).coerceAtMost(viewportHeight)
+  private fun resolvedArticleSizeForViewport(viewportWidth: Float, viewportHeight: Float): SizeF {
+    val pagesPerSpread = if (viewportWidth >= dp(700f)) 2f else 1f
+    val availablePageWidth = (viewportWidth / pagesPerSpread).coerceAtLeast(1f)
+    val availableHeight = (viewportHeight * 0.78f).coerceAtLeast(1f)
+    val maxWidth = min(availablePageWidth, dp(600f))
+    val widthByHeight = availableHeight * MemorialArticleAspect
+    val resolvedWidth = min(maxWidth, widthByHeight).coerceAtLeast(1f)
+    return SizeF(width = resolvedWidth, height = resolvedWidth / MemorialArticleAspect)
   }
 
   private fun calculateTransform(
