@@ -155,7 +155,7 @@ class ArchiveAssistantStateStore(
     val builtInSamplesById = SampleKnowledgeData.items.associateBy { it.id }
     val updatedItems = items.map { item ->
       val builtInSample = builtInSamplesById[item.id]
-      if (item.imageResName == null && builtInSample?.imageResName != null) {
+      if (builtInSample != null && item.imageResName != builtInSample.imageResName) {
         item.copy(imageResName = builtInSample.imageResName)
       } else {
         item
@@ -365,6 +365,10 @@ class ArchiveAssistantStateStore(
 
   fun openSettings() {
     state = state.copy(selectedPane = AppPane.SETTINGS, modalItem = null)
+  }
+
+  fun openMemorialBriefing() {
+    state = state.copy(selectedPane = AppPane.MEMORIAL, modalItem = null)
   }
 
   fun openTopicManagement() {

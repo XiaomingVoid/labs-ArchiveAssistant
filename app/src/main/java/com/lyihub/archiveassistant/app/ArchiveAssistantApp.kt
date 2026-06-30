@@ -133,6 +133,7 @@ fun ArchiveAssistantApp(
   val layoutInfo = rememberWindowLayoutInfo()
   val showMemorialDemo = remember { mutableStateOf(false) }
   val openMemorialDemo = { showMemorialDemo.value = true }
+  val openMemorialBriefing = { effectiveStateStore.openMemorialBriefing() }
 
   val layoutModeTag =
     when (layoutInfo.mode) {
@@ -149,6 +150,7 @@ fun ArchiveAssistantApp(
         presets = presets,
         onPresetsChanged = onPresetsChanged,
         onChooseModelFile = onChooseModelFile,
+        onOpenMemorialBriefing = openMemorialBriefing,
         onOpenMemorialDemo = openMemorialDemo,
       )
     } else {
@@ -158,6 +160,7 @@ fun ArchiveAssistantApp(
         presets = presets,
         onPresetsChanged = onPresetsChanged,
         onChooseModelFile = onChooseModelFile,
+        onOpenMemorialBriefing = openMemorialBriefing,
         onOpenMemorialDemo = openMemorialDemo,
       )
     }
@@ -578,7 +581,7 @@ private val AsciiLetterRegex = Regex("[A-Za-z]")
 private fun ArchiveHomeContent(
   stateStore: ArchiveAssistantStateStore,
   state: ArchiveAssistantState,
-  onOpenMemorialDemo: () -> Unit,
+  onOpenMemorialBriefing: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   HomePane(
@@ -595,7 +598,7 @@ private fun ArchiveHomeContent(
     onDeleteTopic = stateStore::openDeleteConfirmDialog,
     onSearchQueryChanged = stateStore::updateHomeSearchQuery,
     onOpenClipboard = stateStore::openLatestClipboardDialog,
-    onOpenMemorialDemo = onOpenMemorialDemo,
+    onOpenMemorialDemo = onOpenMemorialBriefing,
     modifier = modifier,
   )
 }
@@ -649,6 +652,7 @@ private fun SinglePaneLayout(
   presets: List<AiEnginePreset>,
   onPresetsChanged: (List<AiEnginePreset>) -> Unit,
   onChooseModelFile: () -> Unit,
+  onOpenMemorialBriefing: () -> Unit,
   onOpenMemorialDemo: () -> Unit,
 ) {
   val state = stateStore.state
@@ -658,7 +662,7 @@ private fun SinglePaneLayout(
       ArchiveHomeContent(
         stateStore = stateStore,
         state = state,
-        onOpenMemorialDemo = onOpenMemorialDemo,
+        onOpenMemorialBriefing = onOpenMemorialBriefing,
       )
 
     AppPane.MANAGE,
@@ -666,7 +670,7 @@ private fun SinglePaneLayout(
       ArchiveHomeContent(
         stateStore = stateStore,
         state = state,
-        onOpenMemorialDemo = onOpenMemorialDemo,
+        onOpenMemorialBriefing = onOpenMemorialBriefing,
       )
 
     AppPane.MEMORIAL ->
@@ -687,7 +691,7 @@ private fun SinglePaneLayout(
         ArchiveHomeContent(
           stateStore = stateStore,
           state = state,
-          onOpenMemorialDemo = onOpenMemorialDemo,
+          onOpenMemorialBriefing = onOpenMemorialBriefing,
         )
       }
 
@@ -720,7 +724,7 @@ private fun SinglePaneLayout(
         ArchiveHomeContent(
           stateStore = stateStore,
           state = state,
-          onOpenMemorialDemo = onOpenMemorialDemo,
+          onOpenMemorialBriefing = onOpenMemorialBriefing,
         )
       }
 
@@ -734,7 +738,7 @@ private fun SinglePaneLayout(
         ArchiveHomeContent(
           stateStore = stateStore,
           state = state,
-          onOpenMemorialDemo = onOpenMemorialDemo,
+          onOpenMemorialBriefing = onOpenMemorialBriefing,
         )
       }
   }
@@ -747,6 +751,7 @@ private fun WideWorkspaceLayout(
   presets: List<AiEnginePreset>,
   onPresetsChanged: (List<AiEnginePreset>) -> Unit,
   onChooseModelFile: () -> Unit,
+  onOpenMemorialBriefing: () -> Unit,
   onOpenMemorialDemo: () -> Unit,
 ) {
   val state = stateStore.state
@@ -755,7 +760,7 @@ private fun WideWorkspaceLayout(
       ArchiveHomeContent(
         stateStore = stateStore,
         state = state,
-        onOpenMemorialDemo = onOpenMemorialDemo,
+        onOpenMemorialBriefing = onOpenMemorialBriefing,
         modifier = Modifier.weight(1f),
       )
 

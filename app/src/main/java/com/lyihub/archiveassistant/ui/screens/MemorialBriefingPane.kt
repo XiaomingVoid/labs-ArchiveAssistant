@@ -76,7 +76,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.delay
 
-private const val MemorialCoverAspect = 1f / 2f
+private const val MemorialCoverAspect = 1.1f / 2f
 private const val MemorialWheelItemCount = 20
 private const val MemorialActiveSlotDegrees = 225f
 private const val MemorialWheelDragDegreesPerPixel = -0.18f

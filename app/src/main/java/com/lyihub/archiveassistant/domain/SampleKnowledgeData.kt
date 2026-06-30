@@ -17,7 +17,6 @@ object SampleKnowledgeData {
         summary = "qianguyihao 维护的中文独立博客索引，适合作为作者和信息源人脉库入口。",
         fullText = "中文博客琅琊榜收录持续更新、高质量、阅读体验良好的独立博客，可用于维护长期关注的作者和站点名单。",
         sourceUrl = "https://github.com/qianguyihao/blog-list",
-        imageResName = "article_officials_001_blog_list",
         createdAtEpochMillis = 1_720_000_000_000,
       ),
       KnowledgeItem(
@@ -48,6 +47,7 @@ object SampleKnowledgeData {
         summary = "AI、安卓、后端和开发效率方向的个人技术博客，可作为博主 WEB_ARTICLE 档案。",
         fullText = "lategege 的技术博客归档了 Docker 容器化、Linux 内核、WordPress 迁移 Hugo、私人音乐服务等实践文章。",
         sourceUrl = "https://lategege.com/",
+        imageResName = "article_officials_004_lategege_kernel",
         createdAtEpochMillis = 1_720_259_200_000,
       ),
       KnowledgeItem(

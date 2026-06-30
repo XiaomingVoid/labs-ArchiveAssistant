@@ -421,7 +421,7 @@ private fun HomeFeatureCell(
         val ornamentY = lerpDp(ornamentOffsetY, activeOrnamentOffsetY, workProgress)
         val animatedOrnamentSize = lerpDp(ornamentSize, activeOrnamentSize, workProgress)
         val textOffsetY = -(maxHeight * 0.28f) * workProgress
-        val statusOffsetY = 8.dp * (1f - workProgress)
+        val statusOffsetY = 8.dp * (1f - workProgress) + 4.dp
         HomeOrnament(
           imageRes = ornamentRes,
           modifier =
@@ -885,7 +885,7 @@ private fun MemorialCell(
   ) {
     HomeOrnament(
       imageRes = R.drawable.home_ornament_memorial,
-      modifier = Modifier.align(Alignment.TopEnd).offset(x = 16.dp, y = (-14).dp).size(126.dp),
+      modifier = Modifier.align(Alignment.TopEnd).offset(x = 14.dp, y = (-6).dp).size(116.dp),
       alpha = 0.66f,
     )
     Column(modifier = Modifier.align(Alignment.BottomStart).padding(13.dp)) {
@@ -949,6 +949,7 @@ private fun MinistryStampStack(
               ) {
                 append("尚书省")
               }
+              append("　　")
               withStyle(
                 SpanStyle(
                   color = Color.Black,
