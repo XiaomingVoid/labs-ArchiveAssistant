@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -843,7 +844,7 @@ private fun SearchCell(
               Modifier.fillMaxWidth()
                 .height(34.dp)
                 .background(Color.White.copy(alpha = 0.18f))
-                .padding(horizontal = 10.dp),
+                .padding(start = 10.dp, end = if (searchQuery.isBlank()) 10.dp else 34.dp),
             contentAlignment = Alignment.CenterStart,
           ) {
             if (searchQuery.isBlank()) {
@@ -856,6 +857,19 @@ private fun SearchCell(
               )
             }
             innerTextField()
+            if (searchQuery.isNotBlank()) {
+              IconButton(
+                onClick = { onSearchQueryChanged("") },
+                modifier = Modifier.align(Alignment.CenterEnd).size(30.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Close,
+                  contentDescription = "清空搜索",
+                  tint = Color.White.copy(alpha = 0.82f),
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+            }
           }
         },
       )

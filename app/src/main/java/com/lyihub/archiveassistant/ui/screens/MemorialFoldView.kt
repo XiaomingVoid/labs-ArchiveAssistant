@@ -42,7 +42,6 @@ private enum class MemorialToolbarButton {
   Collapse,
 }
 
-private const val MemorialArticleAspect = 1.1f / 2f
 private const val MinReadableSpreadPageWidthDp = 258f
 private const val StablePaperAgingSeed = 1
 
@@ -447,9 +446,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
               onCloseAnimationFinished?.invoke() ?: onAutoDismiss?.invoke()
             }
           } else if (!isDragging && pressedStamp == MemorialStamp.Collapse && releasedCollapse) {
-            closeWithAnimation {
-              onCloseAnimationFinished?.invoke() ?: onAutoDismiss?.invoke()
-            }
+            closeFromExpandedReader()
           } else if (!isDragging && pressedStamp != null && pressedStamp == releasedStamp) {
             startStampAndDismiss(pressedStamp)
           } else {
@@ -757,9 +754,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
     viewportHeight: Float = foldBottom - foldTop,
   ): Float {
     if (viewportWidth <= 0f || viewportHeight <= 0f) return 1f
-    val heightBoundPageWidth = viewportHeight * 0.78f * MemorialArticleAspect
-    val twoPageWidth = min(viewportWidth / 2f, heightBoundPageWidth)
-    return if (twoPageWidth >= dp(MinReadableSpreadPageWidthDp)) 2f else 1f
+    return if (viewportWidth / 2f >= dp(MinReadableSpreadPageWidthDp)) 2f else 1f
   }
 
   private fun drawCoverStackLayer(canvas: Canvas, alpha: Float) {
@@ -1755,12 +1750,9 @@ internal class MemorialFoldView(context: Context) : View(context) {
 
   private fun resolvedArticleSizeForViewport(viewportWidth: Float, viewportHeight: Float): SizeF {
     val pagesPerSpread = pagesPerSpreadForViewport(viewportWidth, viewportHeight)
-    val availablePageWidth = (viewportWidth / pagesPerSpread).coerceAtLeast(1f)
-    val availableHeight = (viewportHeight * 0.78f).coerceAtLeast(1f)
-    val maxWidth = min(availablePageWidth, dp(600f))
-    val widthByHeight = availableHeight * MemorialArticleAspect
-    val resolvedWidth = min(maxWidth, widthByHeight).coerceAtLeast(1f)
-    return SizeF(width = resolvedWidth, height = resolvedWidth / MemorialArticleAspect)
+    val resolvedWidth = (viewportWidth / pagesPerSpread).coerceAtLeast(1f)
+    val resolvedHeight = (viewportHeight * 0.78f).coerceAtLeast(1f)
+    return SizeF(width = resolvedWidth, height = resolvedHeight)
   }
 
   private fun calculateTransform(
@@ -2977,17 +2969,11 @@ internal class MemorialFoldView(context: Context) : View(context) {
   private fun nearestReadingSnapTarget(scrollX: Float): Float {
     val step = readingSnapStep()
     if (step <= 0f) return 0f
-    val roundedTarget = (scrollX / step).roundToInt() * step
+    val snapCount = (maxScrollX / step).roundToInt().coerceAtLeast(0)
+    val clampedScroll = scrollX.coerceIn(0f, maxScrollX)
     val candidates =
-      listOf(
-        0f,
-        roundedTarget - step,
-        roundedTarget,
-        roundedTarget + step,
-        maxScrollX,
-      )
-    return candidates.map { it.coerceIn(0f, maxScrollX) }.minByOrNull { abs(it - scrollX) }
-      ?: scrollX.coerceIn(0f, maxScrollX)
+      (0..snapCount).map { index -> (index * step).coerceIn(0f, maxScrollX) } + maxScrollX
+    return candidates.distinct().minByOrNull { abs(it - clampedScroll) } ?: clampedScroll
   }
 
   private fun readingSnapStep(): Float {
@@ -3473,6 +3459,16 @@ internal class MemorialFoldView(context: Context) : View(context) {
 
   fun expandCurrentCover() {
     expandFromCover()
+  }
+
+  private fun closeFromExpandedReader() {
+    if (readerMode == MemorialReaderMode.ReviewStack) {
+      returnToCoverStack(advanceStack = false)
+    } else {
+      closeWithAnimation {
+        onCloseAnimationFinished?.invoke() ?: onAutoDismiss?.invoke()
+      }
+    }
   }
 
   private fun returnToCoverStack(advanceStack: Boolean) {
