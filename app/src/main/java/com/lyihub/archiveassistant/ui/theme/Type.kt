@@ -2,107 +2,138 @@ package com.lyihub.archiveassistant.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.lyihub.archiveassistant.R
 
-val Typography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = 0.sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+val ImperialTitleFont = FontFamily(Font(R.font.san_ji_xing_kai_jian_ti_cu, FontWeight.Normal))
+
+val ImperialDisplayFont = FontFamily(Font(R.font.dinglie_song_typeface, FontWeight.Normal))
+
+val ImperialStampTitleFont = ImperialTitleFont
+
+val Typography =
+  Typography(
+    displayLarge =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 42.sp,
+        lineHeight = 50.sp,
+        letterSpacing = 0.sp,
+      ),
+    displayMedium =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 34.sp,
+        lineHeight = 42.sp,
+        letterSpacing = 0.sp,
+      ),
+    displaySmall =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 30.sp,
+        lineHeight = 38.sp,
+        letterSpacing = 0.sp,
+      ),
+    headlineLarge =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 27.sp,
+        lineHeight = 35.sp,
+        letterSpacing = 0.sp,
+      ),
+    headlineMedium =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 23.sp,
+        lineHeight = 31.sp,
+        letterSpacing = 0.sp,
+      ),
+    headlineSmall =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 21.sp,
+        lineHeight = 29.sp,
+        letterSpacing = 0.sp,
+      ),
+    titleLarge =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 21.sp,
+        lineHeight = 29.sp,
+        letterSpacing = 0.sp,
+      ),
+    titleMedium =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 18.sp,
         lineHeight = 26.sp,
-        letterSpacing = 0.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 26.sp,
-        letterSpacing = 0.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+      ),
+    titleSmall =
+      TextStyle(
+        fontFamily = ImperialTitleFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        lineHeight = 22.sp,
+        letterSpacing = 0.sp,
+      ),
+    bodyLarge =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        letterSpacing = 0.sp,
+      ),
+    bodyMedium =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        letterSpacing = 0.sp,
+      ),
+    bodySmall =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+      ),
+    labelLarge =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+      ),
+    labelMedium =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+      ),
+    labelSmall =
+      TextStyle(
+        fontFamily = ImperialDisplayFont,
+        fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-)
+        letterSpacing = 0.sp,
+      ),
+  )

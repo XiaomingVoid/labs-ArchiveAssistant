@@ -1,41 +1,43 @@
 package com.lyihub.archiveassistant.ui.theme
 
-import android.app.Activity
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
+private val DarkColorScheme =
+  darkColorScheme(
     primary = DarkTerracotta,
-    onPrimary = DarkIvory,
+    onPrimary = ImperialIvory,
     secondary = DarkCoral,
-    onSecondary = DarkIvory,
+    onSecondary = ImperialIvory,
     tertiary = DarkMuted,
-    onTertiary = DarkIvory,
+    onTertiary = ImperialIvory,
     background = DarkParchment,
-    onBackground = Ivory,
+    onBackground = ImperialIvory,
     surface = DarkIvory,
-    onSurface = Ivory,
+    onSurface = ImperialUmber,
     surfaceVariant = DarkWarmSurfaceVariant,
-    onSurfaceVariant = DarkMuted,
+    onSurfaceVariant = ImperialUmber,
     outline = DarkWarmBorder,
     outlineVariant = DarkWarmSurface,
-    inverseSurface = Ivory,
-    inverseOnSurface = DarkText,
-    error = Color(0xFFB3261E),
-    onError = Ivory,
-)
+    inverseSurface = ImperialIvory,
+    inverseOnSurface = ImperialUmber,
+    error = ImperialCinnabar,
+    onError = ImperialIvory,
+  )
 
-private val LightColorScheme = lightColorScheme(
+private val LightColorScheme =
+  lightColorScheme(
     primary = Terracotta,
     onPrimary = Ivory,
     secondary = Coral,
@@ -52,42 +54,52 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = WarmSurface,
     inverseSurface = DarkText,
     inverseOnSurface = Ivory,
-    error = Color(0xFFB3261E),
+    error = ImperialCinnabar,
     onError = Ivory,
-)
+  )
 
 @Composable
 fun ArchiveAssistantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
+  darkTheme: Boolean = isSystemInDarkTheme(),
+  dynamicColor: Boolean = false,
+  content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) {
-                androidx.compose.material3.dynamicDarkColorScheme(context)
-            } else {
-                androidx.compose.material3.dynamicLightColorScheme(context)
-            }
+  val colorScheme =
+    when {
+      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        val context = LocalContext.current
+        if (darkTheme) {
+          androidx.compose.material3.dynamicDarkColorScheme(context)
+        } else {
+          androidx.compose.material3.dynamicLightColorScheme(context)
         }
+      }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+      darkTheme -> DarkColorScheme
+      else -> LightColorScheme
     }
 
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+  val view = LocalView.current
+  if (!view.isInEditMode) {
+    SideEffect {
+      val activity = view.context as? ComponentActivity ?: return@SideEffect
+      val systemBarColor = ImperialIvory.toArgb()
+      val systemBarStyle =
+        if (darkTheme) {
+          SystemBarStyle.dark(systemBarColor)
+        } else {
+          SystemBarStyle.light(systemBarColor, systemBarColor)
         }
+      activity.enableEdgeToEdge(
+        statusBarStyle = systemBarStyle,
+        navigationBarStyle = systemBarStyle,
+      )
     }
+  }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+  MaterialTheme(
+    colorScheme = colorScheme,
+    typography = Typography,
+    content = content,
+  )
 }
