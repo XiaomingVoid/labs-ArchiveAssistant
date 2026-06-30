@@ -947,6 +947,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
   }
 
   private fun drawCoverGestureHint(canvas: Canvas) {
+    val controlsWidth = controlsViewportWidth()
     val bottomGap = dp(12f)
     val buttonHeight = dp(48f)
     val bottomTop = foldBottom - buttonHeight - dp(18f)
@@ -956,10 +957,10 @@ internal class MemorialFoldView(context: Context) : View(context) {
       top = bottomTop,
       height = buttonHeight,
       desiredGap = bottomGap,
-      maxWidth = foldRight - foldLeft - dp(32f),
+      maxWidth = controlsWidth,
     )
 
-    val topTotalWidth = min(dp(430f), foldRight - foldLeft - dp(32f))
+    val topTotalWidth = min(dp(430f), controlsWidth)
     val topLeft = foldLeft + ((foldRight - foldLeft) - topTotalWidth) / 2f
     val top = foldTop + dp(18f)
     val topButtonWidth = min(buttonHeight * assets.buttonAspectRatio, topTotalWidth * 0.36f)
@@ -1384,6 +1385,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
   }
 
   private fun drawVerdictToolbar(canvas: Canvas) {
+    val controlsWidth = controlsViewportWidth()
     val toolbarHeight = dp(52f)
     val toolbarTop = foldBottom - toolbarHeight - dp(18f)
     val gap = dp(18f)
@@ -1393,7 +1395,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
       top = toolbarTop,
       height = toolbarHeight,
       desiredGap = gap,
-      maxWidth = foldRight - foldLeft - dp(72f),
+      maxWidth = controlsWidth,
     )
     drawToolbarButton(
       canvas,
@@ -1410,6 +1412,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
   }
 
   private fun drawCollapseButton(canvas: Canvas) {
+    val controlsWidth = controlsViewportWidth()
     val buttonHeight = dp(42f)
     val top = foldTop + dp(18f)
     buttonLayouter.layoutAspectButton(
@@ -1417,7 +1420,7 @@ internal class MemorialFoldView(context: Context) : View(context) {
       centerX = foldLeft + (foldRight - foldLeft) / 2f,
       top = top,
       height = buttonHeight,
-      maxWidth = foldRight - foldLeft - dp(72f),
+      maxWidth = controlsWidth,
     )
     drawToolbarButton(
       canvas,
@@ -1462,6 +1465,10 @@ internal class MemorialFoldView(context: Context) : View(context) {
       toolbarButtonRect2.contains(x, y) -> MemorialStamp.Dislike
       else -> null
     }
+  }
+
+  private fun controlsViewportWidth(): Float {
+    return (foldRight - foldLeft).coerceAtLeast(1f)
   }
 
   private fun drawStampOverlay(canvas: Canvas) {
