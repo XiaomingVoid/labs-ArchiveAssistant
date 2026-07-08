@@ -1,6 +1,6 @@
 # Information Architecture
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. The body starts in `app-state-home` near line 230, then uses master, detail, settings, and manage panes around lines 243, 285, 308, and 376.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. The body starts in `app-state-home` near line 230, then uses master, detail, settings, and manage panes around lines 243, 285, 308, and 376.
 
 Android repo references:
 

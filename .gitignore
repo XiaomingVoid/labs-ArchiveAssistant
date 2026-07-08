@@ -13,6 +13,13 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+*.apk
+*.aab
+*.zip
+
+# Agent workspace artifacts
+.omo/
+.sisyphus/
 
 # Kotlin
 .kotlin/

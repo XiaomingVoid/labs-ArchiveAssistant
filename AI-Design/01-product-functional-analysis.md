@@ -1,6 +1,6 @@
 # Product Functional Analysis
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. Key labels come from the app shell around line 230, parser around line 251, detail tabs around line 285, settings around line 308, and all-topic management around line 376.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. Key labels come from the app shell around line 230, parser around line 251, detail tabs around line 285, settings around line 308, and all-topic management around line 376.
 
 Android repo references:
 

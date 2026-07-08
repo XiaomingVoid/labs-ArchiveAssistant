@@ -1,6 +1,6 @@
 # Verification And QA Plan
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. QA should cover parser flow near line 251, detail tabs near line 293, settings near line 308, manage pane near line 376, and modals near line 389.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. QA should cover parser flow near line 251, detail tabs near line 293, settings near line 308, manage pane near line 376, and modals near line 389.
 
 Android repo references:
 

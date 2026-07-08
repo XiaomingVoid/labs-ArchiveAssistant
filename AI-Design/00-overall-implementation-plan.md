@@ -1,6 +1,6 @@
 # Overall Implementation Plan
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`, especially the body shell near line 230, parser area near line 251, detail pane near line 285, settings pane near line 308, and manage pane near line 376.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`, especially the body shell near line 230, parser area near line 251, detail pane near line 285, settings pane near line 308, and manage pane near line 376.
 
 Android target repo paths:
 

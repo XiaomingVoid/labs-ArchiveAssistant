@@ -1,6 +1,6 @@
 # AI Engine Settings Design
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. Settings begin near line 308 with `配置应用设置`, engine controls near line 318, API mode near line 337, and local model fields near line 356.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. Settings begin near line 308 with `配置应用设置`, engine controls near line 318, API mode near line 337, and local model fields near line 356.
 
 Android repo references:
 

@@ -1,6 +1,6 @@
 # UI Module Design
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. UI references include title `聚合拾遗` near line 246, parser near line 251, detail tabs near line 293, settings controls near line 318, and card or topic modals near line 389.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. UI references include title `聚合拾遗` near line 246, parser near line 251, detail tabs near line 293, settings controls near line 318, and card or topic modals near line 389.
 
 Android repo references:
 

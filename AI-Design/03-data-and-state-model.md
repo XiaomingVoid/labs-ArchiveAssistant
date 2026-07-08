@@ -1,6 +1,6 @@
 # Data And State Model
 
-Source prototype: `/Users/farest/Downloads/knowledge-curation-app-11.html`. Data concepts come from parser input near line 251, recent topics near line 267, detail tabs near line 293, settings fields near line 318, and manage list near line 376.
+Source prototype: local high-fidelity prototype `knowledge-curation-app-11.html`. Data concepts come from parser input near line 251, recent topics near line 267, detail tabs near line 293, settings fields near line 318, and manage list near line 376.
 
 Android repo references:
 
